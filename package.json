@@ -1,0 +1,17 @@
+{
+  "name": "generator-naskah-dinas",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "docxtemplater": "^3.50.0",
+    "next": "^14.2.0",
+    "pizzip": "^3.1.7",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  }
+}
