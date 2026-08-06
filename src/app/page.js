@@ -1,18 +1,26 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function HomePage() {
-  const [nomorSurat, setNomorSurat] = useState('');
-  const [penugasan, setPenugasan] = useState('');
+  // Komponen Nomor Surat Otomatis
+  const [klasifikasi, setKlasifikasi] = useState('700.1.2');
+  const [nomorUrut, setNomorUrut] = useState('');
+  const kodeOPD = '35.07.200'; // Default OPD Inspektorat
   
-  // Tanggal default hari ini dalam format YYYY-MM-DD
+  // Tanggal default hari ini
   const today = new Date().toISOString().split('T')[0];
   const [tanggal, setTanggal] = useState(today);
 
+  // Ambil tahun secara otomatis dari tanggal yang dipilih
+  const tahun = tanggal ? new Date(tanggal).getFullYear() : new Date().getFullYear();
+
+  // Penggabungan Nomor Surat Otomatis
+  const nomorSuratLengkap = `${klasifikasi}/${nomorUrut || '...'}/${kodeOPD}/${tahun}`;
+
+  const [penugasan, setPenugasan] = useState('');
+
   // Dynamic Array: Dasar Hukum
-  const [dasarList, setDasarList] = useState([
-    { no: '1', isi_dasar: '' }
-  ]);
+  const [dasarList, setDasarList] = useState([{ no: '1', isi_dasar: '' }]);
 
   // Dynamic Array: Pegawai
   const [pegawaiList, setPegawaiList] = useState([
@@ -72,7 +80,7 @@ export default function HomePage() {
     e.preventDefault();
 
     const payload = {
-      nomor_surat: nomorSurat,
+      nomor_surat: nomorSuratLengkap, // Kirim hasil gabungan nomor otomatis
       dasar_list: dasarList,
       pegawai_list: pegawaiList,
       penugasan: penugasan,
@@ -92,12 +100,12 @@ export default function HomePage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Surat_Tugas_${nomorSurat.replace(/[\/\s]+/g, '_') || 'Baru'}.docx`;
+      a.download = `Surat_Tugas_${nomorSuratLengkap.replace(/[\/\s]+/g, '_')}.docx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
     } else {
-      alert('Gagal mengunduh surat. Pastikan file template Word sudah diunggah ke public/templates/.');
+      alert('Gagal mengunduh surat. Pastikan file template Word sudah diunggah.');
     }
   };
 
@@ -106,15 +114,60 @@ export default function HomePage() {
       <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Pembuat Surat Tugas Otomatis</h2>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
-        {/* Nomor Surat & Pemilih Tanggal Kalender */}
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nomor Surat</label>
-            <input value={nomorSurat} onChange={(e) => setNomorSurat(e.target.value)} placeholder="090/ST/.../2026" required style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} />
+        {/* SECTION PENOMORAN SURAT OTOMATIS */}
+        <div style={{ border: '1px solid #0066cc', padding: '15px', borderRadius: '6px', backgroundColor: '#f0f7ff' }}>
+          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px', color: '#004080' }}>
+            Penomoran Surat Otomatis:
+          </label>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Kode Klasifikasi</label>
+              <select 
+                value={klasifikasi} 
+                onChange={(e) => setKlasifikasi(e.target.value)}
+                style={{ width: '100%', padding: '8px', marginTop: '4px' }}
+              >
+                <option value="700.1.2">700.1.2 (Pengawasan/Audit)</option>
+                <option value="000.1.2.3">000.1.2.3 (Umum/Kedinasan)</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Nomor Urut Surat</label>
+              <input 
+                type="text" 
+                value={nomorUrut} 
+                onChange={(e) => setNomorUrut(e.target.value)} 
+                placeholder="Contoh: 015 atau 123" 
+                required 
+                style={{ width: '100%', padding: '8px', marginTop: '4px', boxSizing: 'border-box' }} 
+              />
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Tanggal Surat</label>
-            <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} required style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Kode OPD (Otomatis)</label>
+              <input type="text" value={kodeOPD} disabled style={{ width: '100%', padding: '8px', marginTop: '4px', backgroundColor: '#e9ecef', boxSizing: 'border-box' }} />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Tanggal Surat & Tahun</label>
+              <input 
+                type="date" 
+                value={tanggal} 
+                onChange={(e) => setTanggal(e.target.value)} 
+                required 
+                style={{ width: '100%', padding: '8px', marginTop: '4px', boxSizing: 'border-box' }} 
+              />
+            </div>
+          </div>
+
+          {/* Pratinjau Hasil Nomor Surat */}
+          <div style={{ marginTop: '12px', padding: '8px', backgroundColor: '#fff', border: '1px dashed #0066cc', borderRadius: '4px', textAlign: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#555' }}>Preview Nomor Surat: </span>
+            <strong style={{ fontSize: '15px', color: '#0066cc' }}>{nomorSuratLengkap}</strong>
           </div>
         </div>
 
