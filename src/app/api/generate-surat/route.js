@@ -4,7 +4,7 @@ import Docxtemplater from 'docxtemplater';
 import fs from 'fs';
 import path from 'path';
 
-// Helper format tanggal Indonesia (misal: "6 Agustus 2026")
+// Helper format tanggal Indonesia
 function formatTanggalIndo(tanggalStr) {
   if (!tanggalStr) return '-';
   const opsi = { day: 'numeric', month: 'long', year: 'numeric' };
@@ -34,9 +34,7 @@ export async function POST(request) {
     const rawDasarList = body.dasar_list || [];
     const totalDasar = rawDasarList.length;
 
-    // LOGIKA UTAMA DASAR HUKUM:
-    // 1. Poin BUKAN terakhir -> diakhiri titik koma ";"
-    // 2. Poin TERAKHIR       -> diakhiri ", dengan ini:"
+    // Logika Tanda Baca Dasar Hukum
     const formattedDasarList = rawDasarList.map((item, index) => {
       const isTerakhir = index === totalDasar - 1;
       let teksDasar = (item.isi_dasar || '').trim();
@@ -71,14 +69,8 @@ export async function POST(request) {
       nomor_surat: body.nomor_surat || '-',
       penugasan: body.penugasan || '-',
       tanggal: formatTanggalIndo(body.tanggal),
-
-      // Array Dasar Hukum
       dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ no: '1', isi_dasar: ', dengan ini:' }],
-
-      // Array Pegawai (Format Paragraf)
       pegawai_list: formattedPegawaiList.length > 0 ? formattedPegawaiList : [{ no: '1', nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
-
-      // Paraf Hierarki
       tampilkan_paraf: body.tampilkan_paraf ?? true,
       paraf_list: body.paraf_list || []
     });
@@ -93,8 +85,7 @@ export async function POST(request) {
     return new NextResponse(buffer, {
       status: 200,
       headers: {
-        'Content-Type':
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'Content-Disposition': `attachment; filename="${namaFile}"`,
       },
     });
