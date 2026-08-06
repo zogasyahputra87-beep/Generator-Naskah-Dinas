@@ -4,6 +4,14 @@ import Docxtemplater from 'docxtemplater';
 import fs from 'fs';
 import path from 'path';
 
+// Fungsi helper untuk memformat tanggal YYYY-MM-DD menjadi "DD Bulan YYYY"
+function formatTanggalIndo(tanggalStr) {
+  if (!tanggalStr) return '-';
+  const opsi = { day: 'numeric', month: 'long', year: 'numeric' };
+  const date = new Date(tanggalStr);
+  return isNaN(date.getTime()) ? tanggalStr : date.toLocaleDateString('id-ID', opsi);
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -24,30 +32,39 @@ export async function POST(request) {
       linebreaks: true,
     });
 
-    // 2. Render data ke variabel/placeholder di Word
+    // 2. Format ulang array dasar_list agar {no} dan {isi_dasar} siap untuk kolom terpisah
+    const formattedDasarList = (body.dasar_list || []).map((item, index) => ({
+      no: String(index + 1),
+      isi_dasar: item.isi_dasar || ''
+    }));
+
+    // 3. Format ulang array pegawai_list
+    const formattedPegawaiList = (body.pegawai_list || []).map((item, index) => ({
+      no: String(index + 1),
+      nama: item.nama || '',
+      nip: item.nip || '',
+      pangkat_gol: item.pangkat_gol || '',
+      jabatan: item.jabatan || ''
+    }));
+
+    // 4. Render data ke variabel/placeholder di Word
     doc.render({
       nomor_surat: body.nomor_surat || '-',
       penugasan: body.penugasan || '-',
-      tanggal: body.tanggal || '-',
+      tanggal: formatTanggalIndo(body.tanggal),
 
-      // Array Dasar Hukum
-      dasar_list: body.dasar_list && body.dasar_list.length > 0 
-        ? body.dasar_list 
-        : [{ no: '1', isi_dasar: '-' }],
+      // Data Dasar Hukum untuk tabel 4 kolom (kolom nomor & isi terpisah)
+      dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ no: '1', isi_dasar: '-' }],
 
-      // Array Pegawai (Bisa 1 atau banyak orang tanpa terpotong)
-      pegawai_list: body.pegawai_list && body.pegawai_list.length > 0 
-        ? body.pegawai_list 
-        : [{ no: '1', nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
+      // Data Pegawai yang ditugaskan
+      pegawai_list: formattedPegawaiList.length > 0 ? formattedPegawaiList : [{ no: '1', nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
 
-      // Opsi Tampilkan Tabel Paraf (True/False)
+      // Data Paraf Hierarki (Baris Tabel Terpisah)
       tampilkan_paraf: body.tampilkan_paraf ?? true,
-
-      // Array Jabatan Paraf Hierarki Dinamis
       paraf_list: body.paraf_list || []
     });
 
-    // 3. Generate buffer file Word
+    // 5. Generate buffer file Word
     const buffer = doc.getZip().generate({
       type: 'nodebuffer',
       compression: 'DEFLATE',
