@@ -1,8 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+// 1. ISI DENGAN DATA API SUPABASE ANDA
+const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
 export default function HomePage() {
-  // Penomoran Surat Otomatis
   const [klasifikasi, setKlasifikasi] = useState('700.1.2');
   const [nomorUrut, setNomorUrut] = useState('');
   const kodeOPD = '35.07.200';
@@ -14,7 +17,11 @@ export default function HomePage() {
   const nomorSuratLengkap = `${klasifikasi}/${nomorUrut || '...'}/${kodeOPD}/${tahun}`;
   const [penugasan, setPenugasan] = useState('');
 
-  // Dynamic Lists
+  // Master Data Pegawai dari Supabase
+  const [masterPegawai, setMasterPegawai] = useState([]);
+  const [loadingPegawai, setLoadingPegawai] = useState(true);
+
+  // State Form Dinamis
   const [dasarList, setDasarList] = useState([{ no: '1', isi_dasar: '' }]);
   const [pegawaiList, setPegawaiList] = useState([
     { no: '1', nama: '', nip: '', pangkat_gol: '', jabatan: '' }
@@ -26,8 +33,49 @@ export default function HomePage() {
     { jabatan_paraf: 'Auditor Ahli Madya' }
   ]);
 
-  // Modal Preview
   const [showPreview, setShowPreview] = useState(false);
+
+  // FETCH DATA PEGAWAI DARI SUPABASE (REST API)
+  useEffect(() => {
+    async function fetchPegawai() {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/pegawai?select=*&order=nama.asc`, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setMasterPegawai(data);
+        }
+      } catch (err) {
+        console.error('Gagal mengambil data dari Supabase:', err);
+      } finally {
+        setLoadingPegawai(false);
+      }
+    }
+
+    if (!SUPABASE_URL.includes('AKUN_SUPABASE_ANDA')) {
+      fetchPegawai();
+    }
+  }, []);
+
+  // Handler saat nama pegawai dipilih dari Dropdown Opsi
+  const handleSelectPegawaiOtomatis = (index, selectedId) => {
+    const p = masterPegawai.find((item) => String(item.id) === String(selectedId));
+    if (p) {
+      const updated = [...pegawaiList];
+      updated[index] = {
+        ...updated[index],
+        nama: p.nama || '',
+        nip: p.nip || '',
+        pangkat_gol: p.pangkat_gol || '',
+        jabatan: p.jabatan || ''
+      };
+      setPegawaiList(updated);
+    }
+  };
 
   // Handlers Dasar Hukum
   const handleDasarChange = (index, value) => {
@@ -60,7 +108,7 @@ export default function HomePage() {
   const tambahParaf = () => setParafList([...parafList, { jabatan_paraf: '' }]);
   const hapusParaf = (index) => setParafList(parafList.filter((_, i) => i !== index));
 
-  // Download Docx
+  // Handler Unduh Word (.docx)
   const handleDownloadDocx = async () => {
     const payload = {
       nomor_surat: nomorSuratLengkap,
@@ -92,7 +140,6 @@ export default function HomePage() {
     }
   };
 
-  // Format Tanggal Indonesia
   const formatTanggalIndo = (str) => {
     if (!str) return '-';
     const date = new Date(str);
@@ -152,12 +199,35 @@ export default function HomePage() {
             <button type="button" onClick={tambahDasar} style={{ padding: '6px 12px', cursor: 'pointer' }}>+ Tambah Dasar Hukum</button>
           </div>
 
-          {/* Pegawai */}
+          {/* Pegawai / Bezitting Supabase */}
           <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '6px' }}>
             <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>Daftar Personil Yang Ditugaskan:</label>
             {pegawaiList.map((item, index) => (
               <div key={index} style={{ borderBottom: '1px dashed #ccc', paddingBottom: '12px', marginBottom: '12px' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>Pegawai Ke-{item.no}</div>
+                
+                {/* PILIH OTOMATIS DARI SUPABASE */}
+                <div style={{ marginBottom: '10px', backgroundColor: '#eef6ff', padding: '8px', borderRadius: '4px', border: '1px solid #b3d7ff' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#004080' }}>
+                    ⚡ Pilih Cepat dari Master Bezitting Supabase:
+                  </label>
+                  <select
+                    onChange={(e) => handleSelectPegawaiOtomatis(index, e.target.value)}
+                    defaultValue=""
+                    style={{ width: '100%', padding: '8px', marginTop: '4px', cursor: 'pointer' }}
+                  >
+                    <option value="" disabled>
+                      {loadingPegawai ? 'Memuat data pegawai...' : '-- Klik untuk Memilih Pegawai --'}
+                    </option>
+                    {masterPegawai.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nama} - {p.jabatan}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* INPUT DATA PEGAWAI */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <input value={item.nama} onChange={(e) => handlePegawaiChange(index, 'nama', e.target.value)} placeholder="Nama Lengkap" required style={{ padding: '8px' }} />
                   <input value={item.nip} onChange={(e) => handlePegawaiChange(index, 'nip', e.target.value)} placeholder="NIP" required style={{ padding: '8px' }} />
@@ -211,7 +281,6 @@ export default function HomePage() {
       {/* JENDELA PREVIEW A4 */}
       {showPreview && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1000, overflowY: 'auto', padding: '20px 0' }}>
-          
           <div className="no-print" style={{ width: '100%', maxWidth: '210mm', backgroundColor: '#222', color: '#fff', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
             <span style={{ fontWeight: 'bold' }}>Pratinjau Lembar Kerja (A4)</span>
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -259,6 +328,9 @@ export default function HomePage() {
                           if (isLast && teks.length > 0) {
                             if (teks.endsWith('.')) teks = teks.slice(0, -1);
                             teks = `${teks}, dengan ini:`;
+                          } else if (teks.length > 0) {
+                            if (teks.endsWith('.')) teks = teks.slice(0, -1);
+                            teks = `${teks};`;
                           }
                           return (
                             <tr key={i}>
@@ -338,10 +410,8 @@ export default function HomePage() {
               Demikian Surat Tugas ini disampaikan kepada yang bersangkutan untuk dilaksanakan dengan penuh tanggung jawab.
             </p>
 
-            {/* Bagian Bawah: Tanggal, Tanda Tangan & Paraf */}
+            {/* Tanda Tangan & Paraf */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', pageBreakInside: 'avoid' }}>
-              
-              {/* Paraf Hierarki */}
               <div style={{ width: '45%' }}>
                 {tampilkanParaf && (
                   <table style={{ border: '1px solid #000', borderCollapse: 'collapse', width: '100%', fontSize: '9.5pt' }}>
@@ -362,7 +432,6 @@ export default function HomePage() {
                 )}
               </div>
 
-              {/* Tanda Tangan */}
               <div style={{ width: '50%', paddingLeft: '20px' }}>
                 Malang, {formatTanggalIndo(tanggal)}<br />
                 Plt. Inspektur Kabupaten Malang<br /><br /><br /><br /><br />
@@ -370,23 +439,17 @@ export default function HomePage() {
                 Penata Tingkat I<br />
                 NIP 198008012010011018
               </div>
-
             </div>
 
           </div>
         </div>
       )}
 
-      {/* CSS Cetak */}
       <style jsx global>{`
         @media print {
           body { background: #fff !important; margin: 0 !important; }
           .no-print { display: none !important; }
-          .print-area { 
-            box-shadow: none !important; 
-            padding: 0 !important; 
-            width: 100% !important; 
-          }
+          .print-area { box-shadow: none !important; padding: 0 !important; width: 100% !important; }
         }
       `}</style>
     </main>
