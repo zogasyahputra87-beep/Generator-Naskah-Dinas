@@ -2,7 +2,7 @@
 import { useState } from 'react';
 
 export default function HomePage() {
-  // Penomoran Surat
+  // Penomoran Surat Otomatis
   const [klasifikasi, setKlasifikasi] = useState('700.1.2');
   const [nomorUrut, setNomorUrut] = useState('');
   const kodeOPD = '35.07.200';
@@ -26,10 +26,10 @@ export default function HomePage() {
     { jabatan_paraf: 'Auditor Ahli Madya' }
   ]);
 
-  // State Modal Preview
+  // Modal Preview
   const [showPreview, setShowPreview] = useState(false);
 
-  // Handlers Dasar Hukum & Pegawai
+  // Handlers Dasar Hukum
   const handleDasarChange = (index, value) => {
     const updated = [...dasarList];
     updated[index].isi_dasar = value;
@@ -40,6 +40,7 @@ export default function HomePage() {
     setDasarList(dasarList.filter((_, i) => i !== index).map((item, i) => ({ ...item, no: String(i + 1) })));
   };
 
+  // Handlers Pegawai
   const handlePegawaiChange = (index, field, value) => {
     const updated = [...pegawaiList];
     updated[index][field] = value;
@@ -50,13 +51,16 @@ export default function HomePage() {
     setPegawaiList(pegawaiList.filter((_, i) => i !== index).map((item, i) => ({ ...item, no: String(i + 1) })));
   };
 
+  // Handlers Paraf
   const handleParafChange = (index, value) => {
     const updated = [...parafList];
     updated[index].jabatan_paraf = value;
     setParafList(updated);
   };
+  const tambahParaf = () => setParafList([...parafList, { jabatan_paraf: '' }]);
+  const hapusParaf = (index) => setParafList(parafList.filter((_, i) => i !== index));
 
-  // Unduh File Word (.docx)
+  // Download Docx
   const handleDownloadDocx = async () => {
     const payload = {
       nomor_surat: nomorSuratLengkap,
@@ -88,12 +92,7 @@ export default function HomePage() {
     }
   };
 
-  // Fungsi Cetak Langsung
-  const handlePrint = () => {
-    window.print();
-  };
-
-  // Helper Format Tanggal Indonesia
+  // Format Tanggal Indonesia
   const formatTanggalIndo = (str) => {
     if (!str) return '-';
     const date = new Date(str);
@@ -103,57 +102,57 @@ export default function HomePage() {
   return (
     <main style={{ maxWidth: '800px', margin: '30px auto', fontFamily: 'sans-serif', padding: '20px' }}>
       
-      {/* AREA FORMULIR INPUT */}
-      <div className="no-print" style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+      {/* FORMULIR INPUT */}
+      <div className="no-print" style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
         <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Pembuat Surat Tugas Otomatis</h2>
         
         <form onSubmit={(e) => { e.preventDefault(); setShowPreview(true); }} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           {/* Penomoran Surat */}
           <div style={{ border: '1px solid #0066cc', padding: '15px', borderRadius: '6px', backgroundColor: '#f0f7ff' }}>
-            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>Penomoran Surat:</label>
+            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px', color: '#004080' }}>Penomoran Surat:</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
               <div>
-                <label style={{ fontSize: '13px' }}>Kode Klasifikasi</label>
+                <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Kode Klasifikasi</label>
                 <select value={klasifikasi} onChange={(e) => setKlasifikasi(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '4px' }}>
                   <option value="700.1.2">700.1.2 (Pengawasan/Audit)</option>
                   <option value="000.1.2.3">000.1.2.3 (Umum/Kedinasan)</option>
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: '13px' }}>Nomor Urut Surat</label>
+                <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Nomor Urut Surat</label>
                 <input type="text" value={nomorUrut} onChange={(e) => setNomorUrut(e.target.value)} placeholder="Contoh: 015" required style={{ width: '100%', padding: '8px', marginTop: '4px', boxSizing: 'border-box' }} />
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
-                <label style={{ fontSize: '13px' }}>Kode OPD</label>
+                <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Kode OPD (Otomatis)</label>
                 <input type="text" value={kodeOPD} disabled style={{ width: '100%', padding: '8px', marginTop: '4px', backgroundColor: '#e9ecef', boxSizing: 'border-box' }} />
               </div>
               <div>
-                <label style={{ fontSize: '13px' }}>Tanggal Surat</label>
+                <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Tanggal Surat</label>
                 <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px', boxSizing: 'border-box' }} />
               </div>
             </div>
             <div style={{ marginTop: '10px', padding: '6px', backgroundColor: '#fff', border: '1px dashed #0066cc', borderRadius: '4px', textAlign: 'center' }}>
-              Preview Nomor: <strong>{nomorSuratLengkap}</strong>
+              Preview Nomor: <strong style={{ color: '#0066cc' }}>{nomorSuratLengkap}</strong>
             </div>
           </div>
 
-          {/* Section Dasar Hukum */}
+          {/* Dasar Hukum */}
           <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '6px' }}>
             <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>Dasar Hukum:</label>
             {dasarList.map((item, index) => (
               <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                <span>{item.no}.</span>
+                <span style={{ padding: '8px 0' }}>{item.no}.</span>
                 <input value={item.isi_dasar} onChange={(e) => handleDasarChange(index, e.target.value)} placeholder="Isi dasar hukum..." required style={{ flex: 1, padding: '8px' }} />
-                {dasarList.length > 1 && <button type="button" onClick={() => hapusDasar(index)} style={{ color: 'red' }}>Hapus</button>}
+                {dasarList.length > 1 && <button type="button" onClick={() => hapusDasar(index)} style={{ color: 'red', cursor: 'pointer' }}>Hapus</button>}
               </div>
             ))}
-            <button type="button" onClick={tambahDasar}>+ Tambah Dasar Hukum</button>
+            <button type="button" onClick={tambahDasar} style={{ padding: '6px 12px', cursor: 'pointer' }}>+ Tambah Dasar Hukum</button>
           </div>
 
-          {/* Section Pegawai */}
+          {/* Pegawai */}
           <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '6px' }}>
             <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>Daftar Personil Yang Ditugaskan:</label>
             {pegawaiList.map((item, index) => (
@@ -165,20 +164,21 @@ export default function HomePage() {
                   <input value={item.pangkat_gol} onChange={(e) => handlePegawaiChange(index, 'pangkat_gol', e.target.value)} placeholder="Pangkat/Gol" required style={{ padding: '8px' }} />
                   <input value={item.jabatan} onChange={(e) => handlePegawaiChange(index, 'jabatan', e.target.value)} placeholder="Jabatan" required style={{ padding: '8px' }} />
                 </div>
+                {pegawaiList.length > 1 && <button type="button" onClick={() => hapusPegawai(index)} style={{ color: 'red', marginTop: '8px', cursor: 'pointer' }}>Hapus Pegawai Ini</button>}
               </div>
             ))}
-            <button type="button" onClick={tambahPegawai}>+ Tambah Personil</button>
+            <button type="button" onClick={tambahPegawai} style={{ padding: '6px 12px', cursor: 'pointer', backgroundColor: '#eef', border: '1px solid #99c' }}>+ Tambah Personil</button>
           </div>
 
           {/* Maksud Penugasan */}
           <div>
             <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Untuk (Maksud Penugasan):</label>
-            <textarea value={penugasan} onChange={(e) => setPenugasan(e.target.value)} rows="3" required style={{ width: '100%', padding: '8px' }} />
+            <textarea value={penugasan} onChange={(e) => setPenugasan(e.target.value)} rows="3" required style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} />
           </div>
 
           {/* Paraf Hierarki */}
-          <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '6px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+          <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '6px', backgroundColor: '#f9f9f9' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
               <input type="checkbox" checked={tampilkanParaf} onChange={(e) => setTampilkanParaf(e.target.checked)} />
               Cetak Tabel Paraf Hierarki
             </label>
@@ -187,18 +187,20 @@ export default function HomePage() {
                 {parafList.map((item, index) => (
                   <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
                     <input value={item.jabatan_paraf} onChange={(e) => handleParafChange(index, e.target.value)} style={{ flex: 1, padding: '6px' }} />
+                    <button type="button" onClick={() => hapusParaf(index)} style={{ color: 'red', cursor: 'pointer' }}>Hapus</button>
                   </div>
                 ))}
+                <button type="button" onClick={tambahParaf} style={{ marginTop: '6px', fontSize: '13px', cursor: 'pointer' }}>+ Tambah Baris Paraf</button>
               </div>
             )}
           </div>
 
           {/* Tombol Aksi */}
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button type="submit" style={{ flex: 1, backgroundColor: '#28a745', color: 'white', padding: '12px', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+            <button type="submit" style={{ flex: 1, backgroundColor: '#28a745', color: 'white', padding: '14px', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>
               👁️ Preview & Print
             </button>
-            <button type="button" onClick={handleDownloadDocx} style={{ flex: 1, backgroundColor: '#0066cc', color: 'white', padding: '12px', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+            <button type="button" onClick={handleDownloadDocx} style={{ flex: 1, backgroundColor: '#0066cc', color: 'white', padding: '14px', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>
               📥 Unduh Word (.docx)
             </button>
           </div>
@@ -206,168 +208,185 @@ export default function HomePage() {
         </form>
       </div>
 
-      {/* MODAL / TAMPILAN PREVIEW DOKUMEN SIAP PRINT */}
+      {/* JENDELA PREVIEW A4 */}
       {showPreview && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#fff', width: '90%', maxWidth: '800px', height: '90vh', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1000, overflowY: 'auto', padding: '20px 0' }}>
+          
+          <div className="no-print" style={{ width: '100%', maxWidth: '210mm', backgroundColor: '#222', color: '#fff', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
+            <span style={{ fontWeight: 'bold' }}>Pratinjau Lembar Kerja (A4)</span>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => window.print()} style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                🖨️ Cetak / Print
+              </button>
+              <button onClick={handleDownloadDocx} style={{ backgroundColor: '#0066cc', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                📥 Unduh .docx
+              </button>
+              <button onClick={() => setShowPreview(false)} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                ✕ Tutup
+              </button>
+            </div>
+          </div>
+
+          <div className="print-area" style={{ width: '210mm', minHeight: '297mm', backgroundColor: '#fff', padding: '20mm', boxSizing: 'border-box', fontFamily: 'Times New Roman, Times, serif', fontSize: '11pt', lineHeight: '1.3', color: '#000', boxShadow: '0 0 15px rgba(0,0,0,0.3)' }}>
             
-            {/* Header Modal */}
-            <div className="no-print" style={{ padding: '15px', backgroundColor: '#333', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0 }}>Pratinjau Surat Tugas</h3>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={handlePrint} style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  🖨️ Cetak / Print
-                </button>
-                <button onClick={handleDownloadDocx} style={{ backgroundColor: '#0066cc', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  📥 Unduh .docx
-                </button>
-                <button onClick={() => setShowPreview(false)} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  ✕ Tutup
-                </button>
-              </div>
+            {/* Kop Surat */}
+            <div style={{ textAlign: 'center', borderBottom: '3px double #000', paddingBottom: '8px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '13pt', fontWeight: 'bold' }}>PEMERINTAH KABUPATEN MALANG</div>
+              <div style={{ fontSize: '15pt', fontWeight: 'bold' }}>INSPEKTORAT DAERAH</div>
+              <div style={{ fontSize: '8.5pt' }}>Jalan Raya Mondoroko 178 Singosari, Kabupaten Malang, Jawa Timur</div>
+              <div style={{ fontSize: '8.5pt' }}>Telepon/Faksimile (0341) 451905 Laman: inspektorat.malangkab.go.id</div>
+              <div style={{ fontSize: '8.5pt' }}>Pos-el: inspektorat@malangkab.go.id, Kode Pos: 65153</div>
             </div>
 
-            {/* Isi Kertas Surat (Preview A4) */}
-            <div style={{ flex: 1, padding: '40px', overflowY: 'auto', backgroundColor: '#fff', color: '#000', fontFamily: 'Times New Roman, serif', fontSize: '12pt', lineHeight: '1.4' }}>
-              
-              {/* Kop Surat */}
-              <div style={{ textAlign: 'center', borderBottom: '3px double #000', paddingBottom: '10px', marginBottom: '20px' }}>
-                <h4 style={{ margin: 0, fontSize: '14pt', fontWeight: 'bold' }}>PEMERINTAH KABUPATEN MALANG</h4>
-                <h3 style={{ margin: 0, fontSize: '16pt', fontWeight: 'bold' }}>INSPEKTORAT DAERAH</h3>
-                <p style={{ margin: 0, fontSize: '9pt' }}>Jalan Raya Mondoroko 178 Singosari, Kabupaten Malang, Jawa Timur</p>
-              </div>
+            {/* Judul & Nomor */}
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '13pt' }}>SURAT TUGAS</div>
+              <div>NOMOR: {nomorSuratLengkap}</div>
+            </div>
 
-              {/* Judul & Nomor */}
-              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                <u style={{ fontWeight: 'bold', fontSize: '14pt' }}>SURAT TUGAS</u><br />
-                NOMOR: {nomorSuratLengkap}
-              </div>
-
-              {/* Tabel Dasar Hukum */}
-              <table style={{ width: '100%', marginBottom: '15px', borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ width: '70px', verticalAlign: 'top' }}>Dasar</td>
-                    <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
-                    <td style={{ verticalAlign: 'top' }}>
-                      {dasarList.map((d, i) => (
-                        <div key={i} style={{ display: 'flex', marginBottom: '4px' }}>
-                          <span style={{ width: '25px' }}>{i + 1}.</span>
-                          <span style={{ flex: 1 }}>{d.isi_dasar}</span>
-                        </div>
-                      ))}
-                      <div style={{ marginTop: '6px' }}>, dengan ini:</div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <div style={{ textAlign: 'center', fontWeight: 'bold', margin: '15px 0' }}>MEMERINTAHKAN:</div>
-
-              {/* Tabel Pegawai */}
-              <table style={{ width: '100%', marginBottom: '15px', borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ width: '70px', verticalAlign: 'top' }}>Kepada</td>
-                    <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
-                    <td style={{ verticalAlign: 'top' }}>
-                      {pegawaiList.map((p, i) => (
-                        <div key={i} style={{ marginBottom: '10px' }}>
-                          <table style={{ width: '100%' }}>
-                            <tbody>
-                              <tr>
-                                <td style={{ width: '25px', verticalAlign: 'top' }}>{i + 1}.</td>
-                                <td style={{ width: '110px' }}>Nama</td>
-                                <td>: {p.nama}</td>
-                              </tr>
-                              <tr>
-                                <td></td>
-                                <td>NIP</td>
-                                <td>: {p.nip}</td>
-                              </tr>
-                              <tr>
-                                <td></td>
-                                <td>Pangkat/Gol</td>
-                                <td>: {p.pangkat_gol}</td>
-                              </tr>
-                              <tr>
-                                <td></td>
-                                <td>Jabatan</td>
-                                <td>: {p.jabatan}</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      ))}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
-              {/* Maksud Penugasan */}
-              <table style={{ width: '100%', marginBottom: '20px', borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ width: '70px', verticalAlign: 'top' }}>Untuk</td>
-                    <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
-                    <td style={{ verticalAlign: 'top' }}>{penugasan}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <p style={{ textIndent: '30px', textAlign: 'justify' }}>
-                Sesuai prosedur, setelah melaksanakan kegiatan dimaksud agar melaporkan hasilnya kepada Plt. Inspektur Kabupaten Malang.
-              </p>
-              <p style={{ textIndent: '30px', textAlign: 'justify' }}>
-                Selanjutnya dalam upaya menjaga integritas, ASN Inspektorat Daerah dalam melaksanakan tugas tidak menerima Gratifikasi dan Suap serta tidak memungut biaya apapun atas pelayanan yang diberikan.
-              </p>
-
-              {/* Tanggal & Paraf / Tanda Tangan */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '30px' }}>
-                
-                {/* Paraf Hierarki */}
-                <div>
-                  {tampilkanParaf && (
-                    <table style={{ border: '1px solid #000', borderCollapse: 'collapse', minWidth: '220px', fontSize: '10pt' }}>
-                      <thead>
-                        <tr>
-                          <th colSpan="2" style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>PARAF HIERARKI</th>
-                        </tr>
-                      </thead>
+            {/* Tabel Dasar Hukum */}
+            <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', verticalAlign: 'top' }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: '60px', verticalAlign: 'top' }}>Dasar</td>
+                  <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
+                  <td style={{ verticalAlign: 'top' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <tbody>
-                        {parafList.map((item, idx) => (
-                          <tr key={idx}>
-                            <td style={{ border: '1px solid #000', padding: '6px' }}>{item.jabatan_paraf}</td>
-                            <td style={{ border: '1px solid #000', padding: '6px', width: '50px' }}></td>
-                          </tr>
-                        ))}
+                        {dasarList.map((d, i) => {
+                          const isLast = i === dasarList.length - 1;
+                          let teks = (d.isi_dasar || '').trim();
+                          if (isLast && teks.length > 0) {
+                            if (teks.endsWith('.')) teks = teks.slice(0, -1);
+                            teks = `${teks}, dengan ini:`;
+                          }
+                          return (
+                            <tr key={i}>
+                              <td style={{ width: '20px', verticalAlign: 'top', paddingBottom: '4px' }}>{i + 1}.</td>
+                              <td style={{ verticalAlign: 'top', paddingBottom: '4px', textAlign: 'justify' }}>{teks}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
-                  )}
-                </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-                {/* Tanda Tangan */}
-                <div style={{ textAlign: 'left', minWidth: '250px' }}>
-                  Malang, {formatTanggalIndo(tanggal)}<br />
-                  Plt. Inspektur Kabupaten Malang<br /><br /><br /><br />
-                  <strong><u>Arrie Hendrawan Mahardhika, S.H.</u></strong><br />
-                  Penata Tingkat I<br />
-                  NIP. 198008012010011018
-                </div>
+            <div style={{ textAlign: 'center', fontWeight: 'bold', margin: '14px 0' }}>MEMERINTAHKAN:</div>
 
+            {/* Tabel Pegawai */}
+            <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', verticalAlign: 'top' }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: '60px', verticalAlign: 'top' }}>Kepada</td>
+                  <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
+                  <td style={{ verticalAlign: 'top' }}>
+                    {pegawaiList.map((p, i) => (
+                      <div key={i} style={{ marginBottom: '8px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <tbody>
+                            <tr>
+                              <td style={{ width: '20px', verticalAlign: 'top' }}>{i + 1}.</td>
+                              <td style={{ width: '100px', verticalAlign: 'top' }}>Nama</td>
+                              <td style={{ verticalAlign: 'top' }}>: {p.nama}</td>
+                            </tr>
+                            <tr>
+                              <td></td>
+                              <td>NIP</td>
+                              <td>: {p.nip}</td>
+                            </tr>
+                            <tr>
+                              <td></td>
+                              <td>Pangkat/Gol</td>
+                              <td>: {p.pangkat_gol}</td>
+                            </tr>
+                            <tr>
+                              <td></td>
+                              <td>Jabatan</td>
+                              <td>: {p.jabatan}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Maksud Penugasan */}
+            <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse', verticalAlign: 'top' }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: '60px', verticalAlign: 'top' }}>Untuk</td>
+                  <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
+                  <td style={{ verticalAlign: 'top', textAlign: 'justify' }}>{penugasan}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p style={{ textIndent: '30px', textAlign: 'justify', margin: '8px 0' }}>
+              Sesuai prosedur, setelah melaksanakan kegiatan dimaksud agar melaporkan hasilnya kepada Plt. Inspektur Kabupaten Malang.
+            </p>
+            <p style={{ textIndent: '30px', textAlign: 'justify', margin: '8px 0' }}>
+              Selanjutnya dalam upaya menjaga integritas, ASN Inspektorat Daerah dalam melaksanakan tugas tidak menerima Gratifikasi dan Suap serta tidak memungut biaya apapun atas pelayanan yang diberikan.
+            </p>
+
+            <p style={{ textIndent: '30px', textAlign: 'justify', margin: '8px 0' }}>
+              Demikian Surat Tugas ini disampaikan kepada yang bersangkutan untuk dilaksanakan dengan penuh tanggung jawab.
+            </p>
+
+            {/* Bagian Bawah: Tanggal, Tanda Tangan & Paraf */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', pageBreakInside: 'avoid' }}>
+              
+              {/* Paraf Hierarki */}
+              <div style={{ width: '45%' }}>
+                {tampilkanParaf && (
+                  <table style={{ border: '1px solid #000', borderCollapse: 'collapse', width: '100%', fontSize: '9.5pt' }}>
+                    <thead>
+                      <tr>
+                        <th colSpan="2" style={{ border: '1px solid #000', padding: '3px', textAlign: 'center' }}>PARAF HIERARKI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parafList.map((item, idx) => (
+                        <tr key={idx}>
+                          <td style={{ border: '1px solid #000', padding: '4px' }}>{item.jabatan_paraf}</td>
+                          <td style={{ border: '1px solid #000', padding: '4px', width: '45px' }}></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Tanda Tangan */}
+              <div style={{ width: '50%', paddingLeft: '20px' }}>
+                Malang, {formatTanggalIndo(tanggal)}<br />
+                Plt. Inspektur Kabupaten Malang<br /><br /><br /><br /><br />
+                <strong><u>Arrie Hendrawan Mahardhika, S.H.</u></strong><br />
+                Penata Tingkat I<br />
+                NIP 198008012010011018
               </div>
 
             </div>
+
           </div>
         </div>
       )}
 
-      {/* CSS Khusus Cetak (Sembunyikan Elemen Web saat Di-print) */}
+      {/* CSS Cetak */}
       <style jsx global>{`
         @media print {
-          body { background: #fff !important; }
+          body { background: #fff !important; margin: 0 !important; }
           .no-print { display: none !important; }
-          main { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+          .print-area { 
+            box-shadow: none !important; 
+            padding: 0 !important; 
+            width: 100% !important; 
+          }
         }
       `}</style>
     </main>
