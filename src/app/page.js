@@ -4,7 +4,10 @@ import { useState } from 'react';
 export default function HomePage() {
   const [nomorSurat, setNomorSurat] = useState('');
   const [penugasan, setPenugasan] = useState('');
-  const [tanggal, setTanggal] = useState('');
+  
+  // Tanggal default hari ini dalam format YYYY-MM-DD
+  const today = new Date().toISOString().split('T')[0];
+  const [tanggal, setTanggal] = useState(today);
 
   // Dynamic Array: Dasar Hukum
   const [dasarList, setDasarList] = useState([
@@ -16,7 +19,7 @@ export default function HomePage() {
     { no: '1', nama: '', nip: '', pangkat_gol: '', jabatan: '' }
   ]);
 
-  // Option & Dynamic Array: Paraf Hierarki
+  // Dynamic Array & Opsi: Paraf Hierarki
   const [tampilkanParaf, setTampilkanParaf] = useState(true);
   const [parafList, setParafList] = useState([
     { jabatan_paraf: 'Plt. Sekretaris' },
@@ -24,7 +27,7 @@ export default function HomePage() {
     { jabatan_paraf: 'Auditor Ahli Madya' }
   ]);
 
-  // Handlers untuk Dasar Hukum
+  // Handlers Dasar Hukum
   const handleDasarChange = (index, value) => {
     const updated = [...dasarList];
     updated[index].isi_dasar = value;
@@ -38,7 +41,7 @@ export default function HomePage() {
     setDasarList(filtered);
   };
 
-  // Handlers untuk Pegawai
+  // Handlers Pegawai
   const handlePegawaiChange = (index, field, value) => {
     const updated = [...pegawaiList];
     updated[index][field] = value;
@@ -55,7 +58,7 @@ export default function HomePage() {
     setPegawaiList(filtered);
   };
 
-  // Handlers untuk Paraf Hierarki
+  // Handlers Paraf Hierarki
   const handleParafChange = (index, value) => {
     const updated = [...parafList];
     updated[index].jabatan_paraf = value;
@@ -64,7 +67,7 @@ export default function HomePage() {
   const tambahParaf = () => setParafList([...parafList, { jabatan_paraf: '' }]);
   const hapusParaf = (index) => setParafList(parafList.filter((_, i) => i !== index));
 
-  // Handle Submit
+  // Submit Form
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -94,7 +97,7 @@ export default function HomePage() {
       a.click();
       a.remove();
     } else {
-      alert('Gagal mengunduh surat. Pastikan template Word sudah ada di public/templates/.');
+      alert('Gagal mengunduh surat. Pastikan file template Word sudah diunggah ke public/templates/.');
     }
   };
 
@@ -103,7 +106,7 @@ export default function HomePage() {
       <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Pembuat Surat Tugas Otomatis</h2>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
-        {/* Nomor & Tanggal Surat */}
+        {/* Nomor Surat & Pemilih Tanggal Kalender */}
         <div style={{ display: 'flex', gap: '10px' }}>
           <div style={{ flex: 1 }}>
             <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nomor Surat</label>
@@ -111,7 +114,7 @@ export default function HomePage() {
           </div>
           <div style={{ flex: 1 }}>
             <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Tanggal Surat</label>
-            <input value={tanggal} onChange={(e) => setTanggal(e.target.value)} placeholder="Contoh: 10 Agustus 2026" required style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} />
+            <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} required style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} />
           </div>
         </div>
 
@@ -156,7 +159,7 @@ export default function HomePage() {
           <textarea value={penugasan} onChange={(e) => setPenugasan(e.target.value)} rows="3" required style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} />
         </div>
 
-        {/* Opsi Paraf Hierarki */}
+        {/* Section Paraf Hierarki */}
         <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '6px', backgroundColor: '#f9f9f9' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
             <input type="checkbox" checked={tampilkanParaf} onChange={(e) => setTampilkanParaf(e.target.checked)} />
@@ -177,7 +180,7 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Submit */}
+        {/* Submit Button */}
         <button type="submit" style={{ backgroundColor: '#0066cc', color: 'white', padding: '14px', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>
           Generate Surat Tugas (.docx)
         </button>
