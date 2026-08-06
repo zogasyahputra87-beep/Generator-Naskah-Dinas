@@ -34,22 +34,26 @@ export async function POST(request) {
     const rawDasarList = body.dasar_list || [];
     const totalDasar = rawDasarList.length;
 
-    // LOGIKA UTAMA: Otomatis menambahkan ", dengan ini:" khusus di poin terakhir
+    // LOGIKA UTAMA: Otomatis menempelkan ", dengan ini:" di poin terakhir
+    // DAN menambahkan '\n' agar setiap poin dasar hukum PASTI ganti baris (enter)
     const formattedDasarList = rawDasarList.map((item, index) => {
       const isTerakhir = index === totalDasar - 1;
       let teksDasar = (item.isi_dasar || '').trim();
 
-      if (isTerakhir && teksDasar.length > 0) {
-        // Hapus tanda titik di akhir jika ada, lalu tempelkan ", dengan ini:"
-        if (teksDasar.endsWith('.')) {
-          teksDasar = teksDasar.slice(0, -1);
+      if (teksDasar.length > 0) {
+        if (isTerakhir) {
+          // Hapus titik di akhir jika ada, lalu tempelkan ", dengan ini:"
+          if (teksDasar.endsWith('.')) {
+            teksDasar = teksDasar.slice(0, -1);
+          }
+          teksDasar = `${teksDasar}, dengan ini:`;
         }
-        teksDasar = `${teksDasar}, dengan ini:`;
       }
 
       return {
         no: String(index + 1),
-        isi_dasar: teksDasar
+        // Tambahkan \n di akhir string agar otomatis pindah ke baris baru saat dirender di Word
+        isi_dasar: teksDasar + '\n'
       };
     });
 
@@ -67,7 +71,7 @@ export async function POST(request) {
       tanggal: formatTanggalIndo(body.tanggal),
 
       // Array Dasar Hukum
-      dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ no: '1', isi_dasar: ', dengan ini:' }],
+      dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ no: '1', isi_dasar: ', dengan ini:\n' }],
 
       // Array Pegawai
       pegawai_list: formattedPegawaiList.length > 0 ? formattedPegawaiList : [{ no: '1', nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
