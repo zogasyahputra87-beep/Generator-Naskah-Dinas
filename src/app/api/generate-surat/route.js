@@ -4,7 +4,7 @@ import Docxtemplater from 'docxtemplater';
 import fs from 'fs';
 import path from 'path';
 
-// Helper format tanggal Indonesia
+// Helper format tanggal Indonesia (misal: "6 Agustus 2026")
 function formatTanggalIndo(tanggalStr) {
   if (!tanggalStr) return '-';
   const opsi = { day: 'numeric', month: 'long', year: 'numeric' };
@@ -34,8 +34,11 @@ export async function POST(request) {
     const rawDasarList = body.dasar_list || [];
     const totalDasar = rawDasarList.length;
 
-    // Logika Tanda Baca Dasar Hukum
+    // IDE UTAMA DASAR HUKUM:
+    // - Label "Dasar" & ":" HANYA diberikan ke indeks 0 (baris pertama)
+    // - Indeks 1, 2, dst. diberi string kosong "" agar tidak mengulang
     const formattedDasarList = rawDasarList.map((item, index) => {
+      const isPertama = index === 0;
       const isTerakhir = index === totalDasar - 1;
       let teksDasar = (item.isi_dasar || '').trim();
 
@@ -52,25 +55,41 @@ export async function POST(request) {
       }
 
       return {
+        // Trik penghapusan pengulangan kata Dasar & titik dua
+        label_dasar: isPertama ? 'Dasar' : '',
+        label_titik2: isPertama ? ':' : '',
         no: String(index + 1),
         isi_dasar: teksDasar
       };
     });
 
-    const formattedPegawaiList = (body.pegawai_list || []).map((item, index) => ({
-      no: String(index + 1),
-      nama: item.nama || '',
-      nip: item.nip || '',
-      pangkat_gol: item.pangkat_gol || '',
-      jabatan: item.jabatan || ''
-    }));
+    // IDE UTAMA PEGAWAI:
+    // - Label "Kepada" & ":" HANYA diberikan ke indeks 0 (pegawai pertama)
+    const formattedPegawaiList = (body.pegawai_list || []).map((item, index) => {
+      const isPertama = index === 0;
+      return {
+        label_kepada: isPertama ? 'Kepada' : '',
+        label_titik2: isPertama ? ':' : '',
+        no: String(index + 1),
+        nama: item.nama || '',
+        nip: item.nip || '',
+        pangkat_gol: item.pangkat_gol || '',
+        jabatan: item.jabatan || ''
+      };
+    });
 
     doc.render({
       nomor_surat: body.nomor_surat || '-',
       penugasan: body.penugasan || '-',
       tanggal: formatTanggalIndo(body.tanggal),
-      dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ no: '1', isi_dasar: ', dengan ini:' }],
-      pegawai_list: formattedPegawaiList.length > 0 ? formattedPegawaiList : [{ no: '1', nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
+
+      // Array Dasar Hukum
+      dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ label_dasar: 'Dasar', label_titik2: ':', no: '1', isi_dasar: ', dengan ini:' }],
+
+      // Array Pegawai
+      pegawai_list: formattedPegawaiList.length > 0 ? formattedPegawaiList : [{ label_kepada: 'Kepada', label_titik2: ':', no: '1', nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
+
+      // Paraf Hierarki
       tampilkan_paraf: body.tampilkan_paraf ?? true,
       paraf_list: body.paraf_list || []
     });
@@ -85,7 +104,8 @@ export async function POST(request) {
     return new NextResponse(buffer, {
       status: 200,
       headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Type':
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'Content-Disposition': `attachment; filename="${namaFile}"`,
       },
     });
