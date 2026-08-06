@@ -4,7 +4,7 @@ import Docxtemplater from 'docxtemplater';
 import fs from 'fs';
 import path from 'path';
 
-// Fungsi helper untuk memformat tanggal YYYY-MM-DD menjadi "DD Bulan YYYY"
+// Helper format tanggal Indonesia (misal: "6 Agustus 2026")
 function formatTanggalIndo(tanggalStr) {
   if (!tanggalStr) return '-';
   const opsi = { day: 'numeric', month: 'long', year: 'numeric' };
@@ -16,7 +16,6 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    // 1. Ambil file template Word dari folder public/templates/
     const templatePath = path.join(
       process.cwd(),
       'public',
@@ -32,13 +31,28 @@ export async function POST(request) {
       linebreaks: true,
     });
 
-    // 2. Format ulang array dasar_list agar {no} dan {isi_dasar} siap untuk kolom terpisah
-    const formattedDasarList = (body.dasar_list || []).map((item, index) => ({
-      no: String(index + 1),
-      isi_dasar: item.isi_dasar || ''
-    }));
+    const rawDasarList = body.dasar_list || [];
+    const totalDasar = rawDasarList.length;
 
-    // 3. Format ulang array pegawai_list
+    // LOGIKA UTAMA: Otomatis menambahkan ", dengan ini:" khusus di poin terakhir
+    const formattedDasarList = rawDasarList.map((item, index) => {
+      const isTerakhir = index === totalDasar - 1;
+      let teksDasar = (item.isi_dasar || '').trim();
+
+      if (isTerakhir && teksDasar.length > 0) {
+        // Hapus tanda titik di akhir jika ada, lalu tempelkan ", dengan ini:"
+        if (teksDasar.endsWith('.')) {
+          teksDasar = teksDasar.slice(0, -1);
+        }
+        teksDasar = `${teksDasar}, dengan ini:`;
+      }
+
+      return {
+        no: String(index + 1),
+        isi_dasar: teksDasar
+      };
+    });
+
     const formattedPegawaiList = (body.pegawai_list || []).map((item, index) => ({
       no: String(index + 1),
       nama: item.nama || '',
@@ -47,24 +61,22 @@ export async function POST(request) {
       jabatan: item.jabatan || ''
     }));
 
-    // 4. Render data ke variabel/placeholder di Word
     doc.render({
       nomor_surat: body.nomor_surat || '-',
       penugasan: body.penugasan || '-',
       tanggal: formatTanggalIndo(body.tanggal),
 
-      // Data Dasar Hukum untuk tabel 4 kolom (kolom nomor & isi terpisah)
-      dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ no: '1', isi_dasar: '-' }],
+      // Array Dasar Hukum
+      dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ no: '1', isi_dasar: ', dengan ini:' }],
 
-      // Data Pegawai yang ditugaskan
+      // Array Pegawai
       pegawai_list: formattedPegawaiList.length > 0 ? formattedPegawaiList : [{ no: '1', nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
 
-      // Data Paraf Hierarki (Baris Tabel Terpisah)
+      // Paraf Hierarki
       tampilkan_paraf: body.tampilkan_paraf ?? true,
       paraf_list: body.paraf_list || []
     });
 
-    // 5. Generate buffer file Word
     const buffer = doc.getZip().generate({
       type: 'nodebuffer',
       compression: 'DEFLATE',
