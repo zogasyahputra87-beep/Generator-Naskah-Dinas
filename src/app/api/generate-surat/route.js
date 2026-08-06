@@ -34,19 +34,23 @@ export async function POST(request) {
     const rawDasarList = body.dasar_list || [];
     const totalDasar = rawDasarList.length;
 
-    // LOGIKA UTAMA: Otomatis menempelkan ", dengan ini:" khusus di poin terakhir
-    // Tanpa karakter '\n' agar baris tabel Word terduplikasi rapi per baris
+    // LOGIKA UTAMA DASAR HUKUM:
+    // 1. Poin BUKAN terakhir -> diakhiri titik koma ";"
+    // 2. Poin TERAKHIR       -> diakhiri ", dengan ini:"
     const formattedDasarList = rawDasarList.map((item, index) => {
       const isTerakhir = index === totalDasar - 1;
       let teksDasar = (item.isi_dasar || '').trim();
 
       if (teksDasar.length > 0) {
+        // Hapus tanda baca di ujung kalimat jika pengguna tidak sengaja mengetiknya (titik / titik koma)
+        while (teksDasar.endsWith('.') || teksDasar.endsWith(';')) {
+          teksDasar = teksDasar.slice(0, -1).trim();
+        }
+
         if (isTerakhir) {
-          // Hapus titik di akhir jika ada, lalu tempelkan ", dengan ini:"
-          if (teksDasar.endsWith('.')) {
-            teksDasar = teksDasar.slice(0, -1);
-          }
           teksDasar = `${teksDasar}, dengan ini:`;
+        } else {
+          teksDasar = `${teksDasar};`;
         }
       }
 
