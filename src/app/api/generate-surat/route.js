@@ -4,7 +4,7 @@ import Docxtemplater from 'docxtemplater';
 import fs from 'fs';
 import path from 'path';
 
-// Helper format tanggal Indonesia
+// Helper format tanggal Indonesia (misal: "6 Agustus 2026")
 function formatTanggalIndo(tanggalStr) {
   if (!tanggalStr) return '-';
   const opsi = { day: 'numeric', month: 'long', year: 'numeric' };
@@ -42,7 +42,6 @@ export async function POST(request) {
       let teksDasar = (item.isi_dasar || '').trim();
 
       if (teksDasar.length > 0) {
-        // Hapus tanda baca di ujung jika ada
         while (teksDasar.endsWith('.') || teksDasar.endsWith(';')) {
           teksDasar = teksDasar.slice(0, -1).trim();
         }
@@ -76,7 +75,7 @@ export async function POST(request) {
       // Array Dasar Hukum
       dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ no: '1', isi_dasar: ', dengan ini:' }],
 
-      // Array Pegawai
+      // Array Pegawai (Format Paragraf)
       pegawai_list: formattedPegawaiList.length > 0 ? formattedPegawaiList : [{ no: '1', nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
 
       // Paraf Hierarki
