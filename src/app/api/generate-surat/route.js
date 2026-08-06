@@ -34,8 +34,8 @@ export async function POST(request) {
     const rawDasarList = body.dasar_list || [];
     const totalDasar = rawDasarList.length;
 
-    // LOGIKA UTAMA: Otomatis menempelkan ", dengan ini:" di poin terakhir
-    // DAN menambahkan '\n' agar setiap poin dasar hukum PASTI ganti baris (enter)
+    // LOGIKA UTAMA: Otomatis menempelkan ", dengan ini:" khusus di poin terakhir
+    // Tanpa karakter '\n' agar baris tabel Word terduplikasi rapi per baris
     const formattedDasarList = rawDasarList.map((item, index) => {
       const isTerakhir = index === totalDasar - 1;
       let teksDasar = (item.isi_dasar || '').trim();
@@ -52,8 +52,7 @@ export async function POST(request) {
 
       return {
         no: String(index + 1),
-        // Tambahkan \n di akhir string agar otomatis pindah ke baris baru saat dirender di Word
-        isi_dasar: teksDasar + '\n'
+        isi_dasar: teksDasar
       };
     });
 
@@ -71,7 +70,7 @@ export async function POST(request) {
       tanggal: formatTanggalIndo(body.tanggal),
 
       // Array Dasar Hukum
-      dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ no: '1', isi_dasar: ', dengan ini:\n' }],
+      dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ no: '1', isi_dasar: ', dengan ini:' }],
 
       // Array Pegawai
       pegawai_list: formattedPegawaiList.length > 0 ? formattedPegawaiList : [{ no: '1', nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
