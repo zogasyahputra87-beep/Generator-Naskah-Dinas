@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 
 // KONFIGURASI SUPABASE
-const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
+const SUPABASE_URL = 'https://todwehphhdfhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
 export default function HomePage() {
@@ -12,6 +12,7 @@ export default function HomePage() {
   
   const today = new Date().toISOString().split('T')[0];
   const [tanggal, setTanggal] = useState(today);
+  const [tanggalSPD, setTanggalSPD] = useState(today); // CUSTOM TANGGAL SPD
   const tahun = tanggal ? new Date(tanggal).getFullYear() : new Date().getFullYear();
 
   const nomorSuratLengkap = `${klasifikasi}/${nomorUrut || '...'}/${kodeOPD}/${tahun}`;
@@ -25,7 +26,7 @@ export default function HomePage() {
   // Dynamic Lists Form
   const [dasarList, setDasarList] = useState([{ no: '1', isi_dasar: '' }]);
   const [pegawaiList, setPegawaiList] = useState([
-    { no: '1', nama: '', nip: '', pangkat_gol: '', jabatan: '' }
+    { no: '1', nama: '', nip: '', pangkat_gol: '', jabatan: '', selected: true }
   ]);
   const [tampilkanParaf, setTampilkanParaf] = useState(true);
   const [parafList, setParafList] = useState([
@@ -72,7 +73,8 @@ export default function HomePage() {
         nama: p.nama || '',
         nip: p.nip || '',
         pangkat_gol: p.pangkat_gol || '',
-        jabatan: p.jabatan || ''
+        jabatan: p.jabatan || '',
+        selected: true
       };
       setPegawaiList(updated);
     }
@@ -95,7 +97,12 @@ export default function HomePage() {
     updated[index][field] = value;
     setPegawaiList(updated);
   };
-  const tambahPegawai = () => setPegawaiList([...pegawaiList, { no: String(pegawaiList.length + 1), nama: '', nip: '', pangkat_gol: '', jabatan: '' }]);
+  const toggleSelectPegawai = (index) => {
+    const updated = [...pegawaiList];
+    updated[index].selected = !updated[index].selected;
+    setPegawaiList(updated);
+  };
+  const tambahPegawai = () => setPegawaiList([...pegawaiList, { no: String(pegawaiList.length + 1), nama: '', nip: '', pangkat_gol: '', jabatan: '', selected: true }]);
   const hapusPegawai = (index) => {
     setPegawaiList(pegawaiList.filter((_, i) => i !== index).map((item, i) => ({ ...item, no: String(i + 1) })));
   };
@@ -141,21 +148,29 @@ export default function HomePage() {
     }
   };
 
-  // Handler Download SPD Per Orang (File Excel .xlsx) & Simpan Ke Supabase
-  const handleDownloadSPD = async (pegawai) => {
-    const payloadSPD = {
+  // Handler Download SPD Massal (1 File Gabungan)
+  const handleDownloadSPDMassal = async (pegawaiTerpilihList) => {
+    const targetPegawai = pegawaiTerpilihList || pegawaiList.filter(p => p.selected && p.nama);
+
+    if (targetPegawai.length === 0) {
+      alert('Silakan pilih minimal 1 pegawai untuk dicetak SPD-nya!');
+      return;
+    }
+
+    const listPayloadSPD = targetPegawai.map(p => ({
       nomor_spd: `000.1.2.3/${nomorUrut || '...'}/${kodeOPD}/${tahun}`,
-      nama: pegawai.nama,
-      nip: pegawai.nip,
-      pangkat_gol: pegawai.pangkat_gol,
-      jabatan: pegawai.jabatan,
+      nama: p.nama,
+      nip: p.nip,
+      pangkat_gol: p.pangkat_gol,
+      jabatan: p.jabatan,
       maksud_penugasan: penugasan,
       tempat_tujuan: tempatTujuan || 'Lokasi Penugasan',
       tgl_berangkat: tanggal,
       tgl_kembali: tanggal,
-    };
+      tgl_spd: tanggalSPD, // Tanggal kustom SPD
+    }));
 
-    // 1. Simpan Riwayat Ke Supabase (Dilindungi try-catch agar tidak menghentikan unduhan)
+    // Simpan Ke Supabase
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/spd`, {
         method: 'POST',
@@ -165,19 +180,18 @@ export default function HomePage() {
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Prefer': 'return=minimal'
         },
-        body: JSON.stringify(payloadSPD)
+        body: JSON.stringify(listPayloadSPD)
       });
-      console.log('Riwayat SPD berhasil disimpan ke Supabase');
     } catch (err) {
-      console.warn('Gagal menyimpan ke Supabase, proses tetap dilanjutkan ke pengunduhan file:', err);
+      console.warn('Gagal menyimpan ke Supabase:', err);
     }
 
-    // 2. Generate dan Download File Excel (.xlsx)
+    // Generate File Excel Massal
     try {
       const response = await fetch('/api/generate-spd-excel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payloadSPD),
+        body: JSON.stringify({ pegawai_spd: listPayloadSPD }),
       });
 
       if (response.ok) {
@@ -185,16 +199,15 @@ export default function HomePage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `SPD_${(pegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.xlsx`;
+        a.download = `SPD_GABUNGAN_${(nomorUrut || 'DRAFT').replace(/[\/\s]+/g, '_')}.xlsx`;
         document.body.appendChild(a);
         a.click();
         a.remove();
       } else {
         const errData = await response.json().catch(() => ({}));
-        alert(`Gagal mengunduh file Excel SPD: ${errData.message || response.statusText}`);
+        alert(`Gagal mengunduh Excel SPD: ${errData.message || response.statusText}`);
       }
     } catch (err) {
-      console.error('Error saat memanggil API Excel:', err);
       alert('Terjadi kesalahan koneksi saat mengunduh SPD.');
     }
   };
@@ -214,9 +227,9 @@ export default function HomePage() {
         
         <form onSubmit={(e) => { e.preventDefault(); setShowPreview(true); }} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          {/* Penomoran Surat */}
+          {/* Penomoran & Tanggal Surat */}
           <div style={{ border: '1px solid #0066cc', padding: '15px', borderRadius: '6px', backgroundColor: '#f0f7ff' }}>
-            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px', color: '#004080' }}>Penomoran Surat:</label>
+            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px', color: '#004080' }}>Penomoran & Tanggal Surat:</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
               <div>
                 <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Kode Klasifikasi</label>
@@ -230,14 +243,19 @@ export default function HomePage() {
                 <input type="text" value={nomorUrut} onChange={(e) => setNomorUrut(e.target.value)} placeholder="Contoh: 015" required style={{ width: '100%', padding: '8px', marginTop: '4px', boxSizing: 'border-box' }} />
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
               <div>
                 <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Kode OPD (Otomatis)</label>
                 <input type="text" value={kodeOPD} disabled style={{ width: '100%', padding: '8px', marginTop: '4px', backgroundColor: '#e9ecef', boxSizing: 'border-box' }} />
               </div>
               <div>
-                <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Tanggal Surat</label>
+                <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Tgl. Surat Tugas</label>
                 <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px', boxSizing: 'border-box' }} />
+              </div>
+              {/* INPUT CUSTOM TANGGAL SPD */}
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#d9534f' }}>Tgl. Cetak SPD (Custom)</label>
+                <input type="date" value={tanggalSPD} onChange={(e) => setTanggalSPD(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px', boxSizing: 'border-box', border: '1px solid #d9534f' }} />
               </div>
             </div>
             <div style={{ marginTop: '10px', padding: '6px', backgroundColor: '#fff', border: '1px dashed #0066cc', borderRadius: '4px', textAlign: 'center' }}>
@@ -260,19 +278,36 @@ export default function HomePage() {
 
           {/* Pegawai / Bezitting Supabase */}
           <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '6px' }}>
-            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>Daftar Personil Yang Ditugaskan:</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <label style={{ fontWeight: 'bold' }}>Daftar Personil Yang Ditugaskan:</label>
+              {/* TOMBOL CETAK MASSAL */}
+              <button
+                type="button"
+                onClick={() => handleDownloadSPDMassal()}
+                style={{ backgroundColor: '#17a2b8', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+              >
+                📊 Cetak SPD Excel (Gabungkan Terpilih)
+              </button>
+            </div>
+
             {pegawaiList.map((item, index) => (
               <div key={index} style={{ borderBottom: '1px dashed #ccc', paddingBottom: '12px', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <div style={{ fontWeight: 'bold' }}>Pegawai Ke-{item.no}</div>
-                  {/* TOMBOL CETAK SPD EXCEL UNTUK INDIVIDUAL PEGAWAI */}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={item.selected ?? true}
+                      onChange={() => toggleSelectPegawai(index)}
+                    />
+                    Pegawai Ke-{item.no} (Centang untuk cetak SPD)
+                  </label>
                   {item.nama && (
                     <button
                       type="button"
-                      onClick={() => handleDownloadSPD(item)}
-                      style={{ backgroundColor: '#17a2b8', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                      onClick={() => handleDownloadSPDMassal([item])}
+                      style={{ backgroundColor: '#6c757d', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}
                     >
-                      📊 Cetak SPD Excel ({item.nama.split(' ')[0]})
+                      📄 Cetak SPD Orang Ini Saja
                     </button>
                   )}
                 </div>
