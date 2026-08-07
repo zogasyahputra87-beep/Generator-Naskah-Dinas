@@ -13,68 +13,81 @@ function formatTanggalIndo(tanggalStr) {
 export async function POST(request) {
   try {
     const body = await request.json();
+    const listPegawai = body.pegawai_spd || (body.nama ? [body] : []);
 
-    const templatePath = path.join(
-      process.cwd(),
-      'public',
-      'templates',
-      'template_spd.xlsx'
-    );
+    if (listPegawai.length === 0) {
+      return NextResponse.json({ success: false, message: 'Tidak ada data pegawai untuk dicetak.' }, { status: 400 });
+    }
 
-    // Cek ketersediaan file template
+    const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_spd.xlsx');
+
     if (!fs.existsSync(templatePath)) {
-      console.error('File template tidak ditemukan di:', templatePath);
-      return NextResponse.json(
-        { success: false, message: 'Template Excel tidak ditemukan di server.' },
-        { status: 444 }
-      );
+      return NextResponse.json({ success: false, message: 'Template Excel tidak ditemukan di server.' }, { status: 444 });
     }
 
     const fileBuffer = fs.readFileSync(templatePath);
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(fileBuffer);
+    const outputWorkbook = new ExcelJS.Workbook();
 
-    const dataMapping = {
-      '{nomor_spd}': body.nomor_spd || '-',
-      '{pengguna_anggaran}': body.pengguna_anggaran || 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
-      '{nama}': body.nama || '-',
-      '{nip}': body.nip || '-',
-      '{pangkat_gol}': body.pangkat_gol || '-',
-      '{jabatan}': body.jabatan || '-',
-      '{tingkat_biaya}': body.tingkat_biaya || '-',
-      '{maksud_penugasan}': body.maksud_penugasan || '-',
-      '{alat_angkutan}': body.alat_angkutan || 'Angkutan Darat',
-      '{tempat_berangkat}': body.tempat_berangkat || 'Inspektorat Daerah Kab. Malang',
-      '{tempat_tujuan}': body.tempat_tujuan || '-',
-      '{lama_hari}': body.lama_hari || '1 (satu) hari',
-      '{tgl_berangkat}': formatTanggalIndo(body.tgl_berangkat),
-      '{tgl_kembali}': formatTanggalIndo(body.tgl_kembali),
-      '{skpd}': body.skpd || 'Inspektorat Daerah Kabupaten Malang',
-      '{akun}': body.akun || '-',
-      '{keterangan_lain}': body.keterangan_lain || '-',
-      '{tgl_spd}': formatTanggalIndo(body.tgl_spd || body.tgl_berangkat),
-      '{nip_pa}': body.nip_pa || '198008012010011018'
-    };
+    for (let index = 0; index < listPegawai.length; index++) {
+      const dataPegawai = listPegawai[index];
 
-    // Replace tag pada semua sheet (Sheet 1 & Sheet 2)
-    workbook.worksheets.forEach((sheet) => {
-      sheet.eachRow({ includeEmpty: true }, (row) => {
-        row.eachCell({ includeEmpty: true }, (cell) => {
-          if (cell.value && typeof cell.value === 'string') {
-            let text = cell.value;
-            Object.keys(dataMapping).forEach((tag) => {
-              if (text.includes(tag)) {
-                text = text.replaceAll(tag, dataMapping[tag]);
-              }
-            });
-            cell.value = text;
-          }
+      // Membaca template master per pegawai
+      const templateWorkbook = new ExcelJS.Workbook();
+      await templateWorkbook.xlsx.load(fileBuffer);
+
+      const dataMapping = {
+        '{nomor_spd}': dataPegawai.nomor_spd || '-',
+        '{pengguna_anggaran}': dataPegawai.pengguna_anggaran || 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
+        '{nama}': dataPegawai.nama || '-',
+        '{nip}': dataPegawai.nip || '-',
+        '{pangkat_gol}': dataPegawai.pangkat_gol || '-',
+        '{jabatan}': dataPegawai.jabatan || '-',
+        '{tingkat_biaya}': dataPegawai.tingkat_biaya || '-',
+        '{maksud_penugasan}': dataPegawai.maksud_penugasan || '-',
+        '{alat_angkutan}': dataPegawai.alat_angkutan || 'Angkutan Darat',
+        '{tempat_berangkat}': dataPegawai.tempat_berangkat || 'Inspektorat Daerah Kab. Malang',
+        '{tempat_tujuan}': dataPegawai.tempat_tujuan || '-',
+        '{lama_hari}': dataPegawai.lama_hari || '1 (satu) hari',
+        '{tgl_berangkat}': formatTanggalIndo(dataPegawai.tgl_berangkat),
+        '{tgl_kembali}': formatTanggalIndo(dataPegawai.tgl_kembali),
+        '{skpd}': dataPegawai.skpd || 'Inspektorat Daerah Kabupaten Malang',
+        '{akun}': dataPegawai.akun || '-',
+        '{keterangan_lain}': dataPegawai.keterangan_lain || '-',
+        '{tgl_spd}': formatTanggalIndo(dataPegawai.tgl_spd || dataPegawai.tgl_berangkat),
+        '{nip_pa}': dataPegawai.nip_pa || '198008012010011018'
+      };
+
+      // Terapkan data ke sheet
+      templateWorkbook.worksheets.forEach((sheet, sheetIdx) => {
+        sheet.eachRow({ includeEmpty: true }, (row) => {
+          row.eachCell({ includeEmpty: true }, (cell) => {
+            if (cell.value && typeof cell.value === 'string') {
+              let text = cell.value;
+              Object.keys(dataMapping).forEach((tag) => {
+                if (text.includes(tag)) {
+                  text = text.replaceAll(tag, dataMapping[tag]);
+                }
+              });
+              cell.value = text;
+            }
+          });
         });
-      });
-    });
 
-    const outputBuffer = await workbook.xlsx.writeBuffer();
-    const namaFile = `SPD_${(body.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.xlsx`;
+        // Penamaan Sheet unik per pegawai
+        const cleanNama = (dataPegawai.nama || `Pegawai_${index + 1}`).substring(0, 15).replace(/[\\/*?:[\]]/g, '');
+        const sheetName = sheetIdx === 0 ? `Depan_${cleanNama}` : `Belakang_${cleanNama}`;
+        sheet.name = sheetName;
+      });
+
+      // Pindahkan sheet dari templateWorkbook ke outputWorkbook utama
+      templateWorkbook.worksheets.forEach((sheet) => {
+        const newSheet = outputWorkbook.addWorksheet(sheet.name);
+        newSheet.model = sheet.model;
+      });
+    }
+
+    const outputBuffer = await outputWorkbook.xlsx.writeBuffer();
+    const namaFile = `SPD_GABUNGAN_${listPegawai.length}_PEGAWAI.xlsx`;
 
     return new NextResponse(outputBuffer, {
       status: 200,
@@ -84,9 +97,9 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.error('Gagal generate Excel SPD:', error);
+    console.error('Gagal generate Excel SPD Massal:', error);
     return NextResponse.json(
-      { success: false, message: 'Gagal membuat file Excel SPD.', detail: error.message },
+      { success: false, message: 'Gagal membuat file Excel SPD Massal.', detail: error.message },
       { status: 500 }
     );
   }
