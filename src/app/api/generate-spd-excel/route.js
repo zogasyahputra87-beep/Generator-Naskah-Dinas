@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import path from 'path';
+import fs from 'fs';
 
 function formatTanggalIndo(tanggalStr) {
   if (!tanggalStr) return '-';
@@ -20,8 +21,18 @@ export async function POST(request) {
       'template_spd.xlsx'
     );
 
+    // Cek ketersediaan file template
+    if (!fs.existsSync(templatePath)) {
+      console.error('File template tidak ditemukan di:', templatePath);
+      return NextResponse.json(
+        { success: false, message: 'Template Excel tidak ditemukan di server.' },
+        { status: 444 }
+      );
+    }
+
+    const fileBuffer = fs.readFileSync(templatePath);
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(templatePath);
+    await workbook.xlsx.load(fileBuffer);
 
     const dataMapping = {
       '{nomor_spd}': body.nomor_spd || '-',
@@ -62,10 +73,10 @@ export async function POST(request) {
       });
     });
 
-    const buffer = await workbook.xlsx.writeBuffer();
+    const outputBuffer = await workbook.xlsx.writeBuffer();
     const namaFile = `SPD_${(body.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.xlsx`;
 
-    return new NextResponse(buffer, {
+    return new NextResponse(outputBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -75,7 +86,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Gagal generate Excel SPD:', error);
     return NextResponse.json(
-      { success: false, message: 'Gagal membuat file Excel SPD.' },
+      { success: false, message: 'Gagal membuat file Excel SPD.', detail: error.message },
       { status: 500 }
     );
   }
