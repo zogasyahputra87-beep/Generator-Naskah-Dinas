@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 
 // KONFIGURASI SUPABASE
-const SUPABASE_URL = 'https://todwehphhdfhdfqmibixcbz.supabase.co';
+const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
 export default function HomePage() {
@@ -26,7 +26,7 @@ export default function HomePage() {
   // Dynamic Lists Form
   const [dasarList, setDasarList] = useState([{ no: '1', isi_dasar: '' }]);
   const [pegawaiList, setPegawaiList] = useState([
-    { no: '1', nama: '', nip: '', pangkat_gol: '', jabatan: '', selected: true }
+    { no: '1', id_supabase: '', nama: '', nip: '', pangkat_gol: '', jabatan: '', selected: true }
   ]);
   const [tampilkanParaf, setTampilkanParaf] = useState(true);
   const [parafList, setParafList] = useState([
@@ -70,6 +70,7 @@ export default function HomePage() {
       const updated = [...pegawaiList];
       updated[index] = {
         ...updated[index],
+        id_supabase: p.id,
         nama: p.nama || '',
         nip: p.nip || '',
         pangkat_gol: p.pangkat_gol || '',
@@ -102,7 +103,7 @@ export default function HomePage() {
     updated[index].selected = !updated[index].selected;
     setPegawaiList(updated);
   };
-  const tambahPegawai = () => setPegawaiList([...pegawaiList, { no: String(pegawaiList.length + 1), nama: '', nip: '', pangkat_gol: '', jabatan: '', selected: true }]);
+  const tambahPegawai = () => setPegawaiList([...pegawaiList, { no: String(pegawaiList.length + 1), id_supabase: '', nama: '', nip: '', pangkat_gol: '', jabatan: '', selected: true }]);
   const hapusPegawai = (index) => {
     setPegawaiList(pegawaiList.filter((_, i) => i !== index).map((item, i) => ({ ...item, no: String(i + 1) })));
   };
@@ -167,10 +168,10 @@ export default function HomePage() {
       tempat_tujuan: tempatTujuan || 'Lokasi Penugasan',
       tgl_berangkat: tanggal,
       tgl_kembali: tanggal,
-      tgl_spd: tanggalSPD, // Tanggal kustom SPD
+      tgl_spd: tanggalSPD,
     }));
 
-    // Simpan Ke Supabase
+    // Simpan Ke Supabase (Ditangani dengan try-catch agar kegagalan DB tidak memutus download)
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/spd`, {
         method: 'POST',
@@ -183,7 +184,7 @@ export default function HomePage() {
         body: JSON.stringify(listPayloadSPD)
       });
     } catch (err) {
-      console.warn('Gagal menyimpan ke Supabase:', err);
+      console.warn('Gagal menyimpan riwayat ke Supabase:', err);
     }
 
     // Generate File Excel Massal
@@ -252,7 +253,6 @@ export default function HomePage() {
                 <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Tgl. Surat Tugas</label>
                 <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px', boxSizing: 'border-box' }} />
               </div>
-              {/* INPUT CUSTOM TANGGAL SPD */}
               <div>
                 <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#d9534f' }}>Tgl. Cetak SPD (Custom)</label>
                 <input type="date" value={tanggalSPD} onChange={(e) => setTanggalSPD(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px', boxSizing: 'border-box', border: '1px solid #d9534f' }} />
@@ -280,7 +280,6 @@ export default function HomePage() {
           <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <label style={{ fontWeight: 'bold' }}>Daftar Personil Yang Ditugaskan:</label>
-              {/* TOMBOL CETAK MASSAL */}
               <button
                 type="button"
                 onClick={() => handleDownloadSPDMassal()}
@@ -319,7 +318,7 @@ export default function HomePage() {
                   </label>
                   <select
                     onChange={(e) => handleSelectPegawaiOtomatis(index, e.target.value)}
-                    defaultValue=""
+                    value={item.id_supabase || ""}
                     style={{ width: '100%', padding: '8px', marginTop: '4px', cursor: 'pointer' }}
                   >
                     <option value="" disabled>
