@@ -209,7 +209,7 @@ export default function HomePage() {
                 {/* PILIH OTOMATIS DARI SUPABASE */}
                 <div style={{ marginBottom: '10px', backgroundColor: '#eef6ff', padding: '8px', borderRadius: '4px', border: '1px solid #b3d7ff' }}>
                   <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#004080' }}>
-                    ⚡ Pilih Cepat dari Master Bezitting Supabase:
+                    Pilihan:
                   </label>
                   <select
                     onChange={(e) => handleSelectPegawaiOtomatis(index, e.target.value)}
