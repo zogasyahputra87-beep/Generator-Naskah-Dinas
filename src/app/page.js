@@ -66,7 +66,6 @@ export default function HomePage() {
     }
   }, []);
 
-  // Handler Pilih Pegawai Otomatis dari Supabase
   const handleSelectPegawaiOtomatis = (index, selectedId) => {
     const p = masterPegawai.find((item) => String(item.id) === String(selectedId));
     if (p) {
@@ -84,7 +83,6 @@ export default function HomePage() {
     }
   };
 
-  // Handlers Dasar Hukum
   const handleDasarChange = (index, value) => {
     const updated = [...dasarList];
     updated[index].isi_dasar = value;
@@ -95,7 +93,6 @@ export default function HomePage() {
     setDasarList(dasarList.filter((_, i) => i !== index).map((item, i) => ({ ...item, no: String(i + 1) })));
   };
 
-  // Handlers Pegawai
   const handlePegawaiChange = (index, field, value) => {
     const updated = [...pegawaiList];
     updated[index][field] = value;
@@ -111,7 +108,6 @@ export default function HomePage() {
     setPegawaiList(pegawaiList.filter((_, i) => i !== index).map((item, i) => ({ ...item, no: String(i + 1) })));
   };
 
-  // Handlers Paraf
   const handleParafChange = (index, value) => {
     const updated = [...parafList];
     updated[index].jabatan_paraf = value;
@@ -152,12 +148,57 @@ export default function HomePage() {
     }
   };
 
-  // Handler Membuka Preview Cetak PDF SPD (Massal / Perorangan)
-  const handlePrepareSPDPrint = async (targetList) => {
-    const listPegawaiToPrint = targetList || pegawaiList.filter(p => p.selected && p.nama);
+  // Handler Download File Excel Asli (.xlsx)
+  const handleDownloadSPDExcel = async (targetList) => {
+    const listPegawaiToDownload = targetList || pegawaiList.filter(p => p.selected && p.nama);
 
+    if (listPegawaiToDownload.length === 0) {
+      alert('Silakan pilih minimal 1 pegawai!');
+      return;
+    }
+
+    const payloadSPDList = listPegawaiToDownload.map(p => ({
+      nomor_spd: `000.1.2.3/${nomorUrut || '...'}/${kodeOPD}/${tahun}`,
+      nama: p.nama,
+      nip: p.nip,
+      pangkat_gol: p.pangkat_gol,
+      jabatan: p.jabatan,
+      maksud_penugasan: penugasan,
+      tempat_tujuan: tempatTujuan || 'Lokasi Penugasan',
+      tgl_berangkat: tanggal,
+      tgl_kembali: tanggal,
+      tgl_spd: tanggalSPD,
+    }));
+
+    try {
+      const response = await fetch('/api/generate-spd-excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pegawai_spd: payloadSPDList }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SPD_GABUNGAN_${(nomorUrut || 'DRAFT').replace(/[\/\s]+/g, '_')}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        alert('Gagal mengunduh file Excel SPD.');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan koneksi.');
+    }
+  };
+
+  // Handler Preview PDF/Print
+  const handlePrepareSPDPrint = (targetList) => {
+    const listPegawaiToPrint = targetList || pegawaiList.filter(p => p.selected && p.nama);
     if (listPegawaiToPrint.length === 0) {
-      alert('Silakan pilih minimal 1 pegawai untuk dicetak SPD-nya!');
+      alert('Silakan pilih minimal 1 pegawai!');
       return;
     }
 
@@ -173,22 +214,6 @@ export default function HomePage() {
       tgl_kembali: tanggal,
       tgl_spd: tanggalSPD,
     }));
-
-    // Simpan Riwayat ke Supabase
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/spd`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify(payloadSPDList)
-      });
-    } catch (err) {
-      console.warn('Gagal menyimpan riwayat ke Supabase:', err);
-    }
 
     setSpdPrintData(payloadSPDList);
     setShowPreviewSPD(true);
@@ -261,13 +286,22 @@ export default function HomePage() {
           <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <label style={{ fontWeight: 'bold' }}>Daftar Personil Yang Ditugaskan:</label>
-              <button
-                type="button"
-                onClick={() => handlePrepareSPDPrint()}
-                style={{ backgroundColor: '#17a2b8', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
-              >
-                🖨️ Cetak PDF SPD (Gabungkan Terpilih)
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadSPDExcel()}
+                  style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                >
+                  📥 Unduh Excel SPD (.xlsx)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePrepareSPDPrint()}
+                  style={{ backgroundColor: '#17a2b8', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                >
+                  🖨️ Preview / Print PDF
+                </button>
+              </div>
             </div>
 
             {pegawaiList.map((item, index) => (
@@ -281,15 +315,6 @@ export default function HomePage() {
                     />
                     Pegawai Ke-{item.no} (Centang untuk cetak SPD)
                   </label>
-                  {item.nama && (
-                    <button
-                      type="button"
-                      onClick={() => handlePrepareSPDPrint([item])}
-                      style={{ backgroundColor: '#6c757d', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}
-                    >
-                      📄 Cetak PDF SPD Orang Ini Saja
-                    </button>
-                  )}
                 </div>
                 
                 {/* PILIH OTOMATIS DARI SUPABASE */}
@@ -370,7 +395,7 @@ export default function HomePage() {
         </form>
       </div>
 
-      {/* MODAL 1: PREVIEW SURAT TUGAS A4 */}
+      {/* MODAL 1: PREVIEW SURAT TUGAS */}
       {showPreviewSurat && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1000, overflowY: 'auto', padding: '20px 0' }}>
           <div className="no-print" style={{ width: '100%', maxWidth: '210mm', backgroundColor: '#222', color: '#fff', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
@@ -537,11 +562,11 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* MODAL 2: PREVIEW CETAK PDF SPD (LEMBAR DEPAN & BELAKANG) */}
+      {/* MODAL 2: PREVIEW PRESI SPD DENGAN PEMBATASAN HALAMAN UTUH UNTUK CETAK BOLAK-BALIK */}
       {showPreviewSPD && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1000, overflowY: 'auto', padding: '20px 0' }}>
           <div className="no-print" style={{ width: '100%', maxWidth: '210mm', backgroundColor: '#222', color: '#fff', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
-            <span style={{ fontWeight: 'bold' }}>Pratinjau Cetak SPD ({spdPrintData.length} Pegawai)</span>
+            <span style={{ fontWeight: 'bold' }}>Pratinjau SPD ({spdPrintData.length} Pegawai) - Siap Cetak Bolak-Balik</span>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => window.print()} style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                 🖨️ Cetak / Simpan PDF
@@ -554,10 +579,10 @@ export default function HomePage() {
 
           <div className="print-area" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {spdPrintData.map((item, index) => (
-              <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div key={index} style={{ display: 'flex', flexDirection: 'column' }}>
                 
                 {/* HALAMAN 1 SPD (LEMBAR DEPAN) */}
-                <div style={{ width: '210mm', minHeight: '297mm', backgroundColor: '#fff', padding: '12mm 15mm', boxSizing: 'border-box', fontFamily: 'Arial, sans-serif', fontSize: '9.5pt', lineHeight: '1.25', color: '#000', boxShadow: '0 0 15px rgba(0,0,0,0.3)', pageBreakAfter: 'always' }}>
+                <div className="page-break" style={{ width: '210mm', minHeight: '297mm', backgroundColor: '#fff', padding: '12mm 15mm', boxSizing: 'border-box', fontFamily: 'Arial, sans-serif', fontSize: '9.5pt', lineHeight: '1.25', color: '#000', boxShadow: '0 0 15px rgba(0,0,0,0.3)', position: 'relative' }}>
                   
                   {/* Kop SPD */}
                   <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '10px' }}>
@@ -682,8 +707,8 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* HALAMAN 2 SPD (VISUM / LEMBAR BELAKANG) */}
-                <div style={{ width: '210mm', minHeight: '297mm', backgroundColor: '#fff', padding: '12mm 15mm', boxSizing: 'border-box', fontFamily: 'Arial, sans-serif', fontSize: '9pt', lineHeight: '1.2', color: '#000', boxShadow: '0 0 15px rgba(0,0,0,0.3)', pageBreakAfter: 'always' }}>
+                {/* HALAMAN 2 SPD (VISUM / LEMBAR BELAKANG DENGAN TTD LENGKAP PENGGUNA ANGGARAN) */}
+                <div className="page-break" style={{ width: '210mm', minHeight: '297mm', backgroundColor: '#fff', padding: '12mm 15mm', boxSizing: 'border-box', fontFamily: 'Arial, sans-serif', fontSize: '9pt', lineHeight: '1.2', color: '#000', boxShadow: '0 0 15px rgba(0,0,0,0.3)', position: 'relative' }}>
                   
                   <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }}>
                     <tbody>
@@ -757,6 +782,15 @@ export default function HomePage() {
                     Pejabat yang berwenang menerbitkan SPPD, pegawai yang melakukan perjalanan dinas, para pejabat yang mengesahkan tanggal berangkat/tiba serta Bendaharawan bertanggung jawab berdasarkan peraturan-peraturan Keuangan Negara apabila Negara mendapat rugi akibat kesalahan.
                   </div>
 
+                  {/* TTD PENGGUNA ANGGARAN DI BAGIAN BAWAH LEMBAR BELAKANG (BISA DILENGKAPI) */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                    <div style={{ width: '50%', textAlign: 'center' }}>
+                      Pengguna Anggaran<br /><br /><br /><br />
+                      <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
+                      NIP. 198008012010011018
+                    </div>
+                  </div>
+
                 </div>
 
               </div>
@@ -770,6 +804,7 @@ export default function HomePage() {
           body { background: #fff !important; margin: 0 !important; }
           .no-print { display: none !important; }
           .print-area { box-shadow: none !important; padding: 0 !important; width: 100% !important; }
+          .page-break { page-break-after: always !important; break-after: page !important; }
         }
       `}</style>
     </main>
