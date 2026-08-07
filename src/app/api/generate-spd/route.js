@@ -20,11 +20,16 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'Tidak ada data pegawai.' }, { status: 400 });
     }
 
-    // Baca Template Word
     const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_spd.docx');
-    const content = await fs.readFile(templatePath);
+    
+    // Cek file template Word
+    let content;
+    try {
+      content = await fs.readFile(templatePath);
+    } catch (err) {
+      return NextResponse.json({ success: false, message: 'File template_spd.docx tidak ditemukan di public/templates/' }, { status: 404 });
+    }
 
-    // Jika membuat untuk 1 pegawai
     const dataPegawai = listPegawai[0];
     const zip = new PizZip(content);
     const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
@@ -45,12 +50,13 @@ export async function POST(request) {
     });
 
     const buf = doc.getZip().generate({ type: 'nodebuffer' });
+    const namaFile = `SPD_${(dataPegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
 
     return new NextResponse(buf, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'Content-Disposition': `attachment; filename="SPD_${dataPegawai.nama.replace(/\s+/g, '_')}.docx"`,
+        'Content-Disposition': `attachment; filename="${namaFile}"`,
       },
     });
   } catch (error) {
