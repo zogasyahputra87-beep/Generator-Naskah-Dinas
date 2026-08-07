@@ -155,7 +155,7 @@ export default function HomePage() {
       tgl_kembali: tanggal,
     };
 
-    // 1. Simpan Riwayat Ke Supabase
+    // 1. Simpan Riwayat Ke Supabase (Dilindungi try-catch agar tidak menghentikan unduhan)
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/spd`, {
         method: 'POST',
@@ -167,28 +167,35 @@ export default function HomePage() {
         },
         body: JSON.stringify(payloadSPD)
       });
+      console.log('Riwayat SPD berhasil disimpan ke Supabase');
     } catch (err) {
-      console.error('Gagal menyimpan riwayat SPD ke Supabase:', err);
+      console.warn('Gagal menyimpan ke Supabase, proses tetap dilanjutkan ke pengunduhan file:', err);
     }
 
     // 2. Generate dan Download File Excel (.xlsx)
-    const response = await fetch('/api/generate-spd-excel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payloadSPD),
-    });
+    try {
+      const response = await fetch('/api/generate-spd-excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadSPD),
+      });
 
-    if (response.ok) {
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `SPD_${(pegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } else {
-      alert('Gagal mengunduh file Excel SPD.');
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SPD_${(pegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        alert(`Gagal mengunduh file Excel SPD: ${errData.message || response.statusText}`);
+      }
+    } catch (err) {
+      console.error('Error saat memanggil API Excel:', err);
+      alert('Terjadi kesalahan koneksi saat mengunduh SPD.');
     }
   };
 
