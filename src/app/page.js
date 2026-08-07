@@ -12,7 +12,7 @@ export default function HomePage() {
   
   const today = new Date().toISOString().split('T')[0];
   const [tanggal, setTanggal] = useState(today);
-  const [tanggalSPD, setTanggalSPD] = useState(today); // CUSTOM TANGGAL SPD
+  const [tanggalSPD, setTanggalSPD] = useState(today);
   const tahun = tanggal ? new Date(tanggal).getFullYear() : new Date().getFullYear();
 
   const nomorSuratLengkap = `${klasifikasi}/${nomorUrut || '...'}/${kodeOPD}/${tahun}`;
@@ -35,7 +35,10 @@ export default function HomePage() {
     { jabatan_paraf: 'Auditor Ahli Madya' }
   ]);
 
-  const [showPreview, setShowPreview] = useState(false);
+  // Modal Views State
+  const [showPreviewSurat, setShowPreviewSurat] = useState(false);
+  const [showPreviewSPD, setShowPreviewSPD] = useState(false);
+  const [spdPrintData, setSpdPrintData] = useState([]);
 
   // Fetch Bezitting Pegawai dari Supabase REST API
   useEffect(() => {
@@ -149,16 +152,16 @@ export default function HomePage() {
     }
   };
 
-  // Handler Download SPD Massal (1 File Gabungan)
-  const handleDownloadSPDMassal = async (pegawaiTerpilihList) => {
-    const targetPegawai = pegawaiTerpilihList || pegawaiList.filter(p => p.selected && p.nama);
+  // Handler Membuka Preview Cetak PDF SPD (Massal / Perorangan)
+  const handlePrepareSPDPrint = async (targetList) => {
+    const listPegawaiToPrint = targetList || pegawaiList.filter(p => p.selected && p.nama);
 
-    if (targetPegawai.length === 0) {
+    if (listPegawaiToPrint.length === 0) {
       alert('Silakan pilih minimal 1 pegawai untuk dicetak SPD-nya!');
       return;
     }
 
-    const listPayloadSPD = targetPegawai.map(p => ({
+    const payloadSPDList = listPegawaiToPrint.map(p => ({
       nomor_spd: `000.1.2.3/${nomorUrut || '...'}/${kodeOPD}/${tahun}`,
       nama: p.nama,
       nip: p.nip,
@@ -171,7 +174,7 @@ export default function HomePage() {
       tgl_spd: tanggalSPD,
     }));
 
-    // Simpan Ke Supabase (Ditangani dengan try-catch agar kegagalan DB tidak memutus download)
+    // Simpan Riwayat ke Supabase
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/spd`, {
         method: 'POST',
@@ -181,36 +184,14 @@ export default function HomePage() {
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Prefer': 'return=minimal'
         },
-        body: JSON.stringify(listPayloadSPD)
+        body: JSON.stringify(payloadSPDList)
       });
     } catch (err) {
       console.warn('Gagal menyimpan riwayat ke Supabase:', err);
     }
 
-    // Generate File Excel Massal
-    try {
-      const response = await fetch('/api/generate-spd-excel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pegawai_spd: listPayloadSPD }),
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `SPD_GABUNGAN_${(nomorUrut || 'DRAFT').replace(/[\/\s]+/g, '_')}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        alert(`Gagal mengunduh Excel SPD: ${errData.message || response.statusText}`);
-      }
-    } catch (err) {
-      alert('Terjadi kesalahan koneksi saat mengunduh SPD.');
-    }
+    setSpdPrintData(payloadSPDList);
+    setShowPreviewSPD(true);
   };
 
   const formatTanggalIndo = (str) => {
@@ -226,7 +207,7 @@ export default function HomePage() {
       <div className="no-print" style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
         <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Sistem Naskah Dinas Inspektorat</h2>
         
-        <form onSubmit={(e) => { e.preventDefault(); setShowPreview(true); }} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <form onSubmit={(e) => { e.preventDefault(); setShowPreviewSurat(true); }} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           {/* Penomoran & Tanggal Surat */}
           <div style={{ border: '1px solid #0066cc', padding: '15px', borderRadius: '6px', backgroundColor: '#f0f7ff' }}>
@@ -282,10 +263,10 @@ export default function HomePage() {
               <label style={{ fontWeight: 'bold' }}>Daftar Personil Yang Ditugaskan:</label>
               <button
                 type="button"
-                onClick={() => handleDownloadSPDMassal()}
+                onClick={() => handlePrepareSPDPrint()}
                 style={{ backgroundColor: '#17a2b8', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
               >
-                📊 Cetak SPD Excel (Gabungkan Terpilih)
+                🖨️ Cetak PDF SPD (Gabungkan Terpilih)
               </button>
             </div>
 
@@ -303,10 +284,10 @@ export default function HomePage() {
                   {item.nama && (
                     <button
                       type="button"
-                      onClick={() => handleDownloadSPDMassal([item])}
+                      onClick={() => handlePrepareSPDPrint([item])}
                       style={{ backgroundColor: '#6c757d', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}
                     >
-                      📄 Cetak SPD Orang Ini Saja
+                      📄 Cetak PDF SPD Orang Ini Saja
                     </button>
                   )}
                 </div>
@@ -389,11 +370,11 @@ export default function HomePage() {
         </form>
       </div>
 
-      {/* JENDELA PREVIEW A4 */}
-      {showPreview && (
+      {/* MODAL 1: PREVIEW SURAT TUGAS A4 */}
+      {showPreviewSurat && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1000, overflowY: 'auto', padding: '20px 0' }}>
           <div className="no-print" style={{ width: '100%', maxWidth: '210mm', backgroundColor: '#222', color: '#fff', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
-            <span style={{ fontWeight: 'bold' }}>Pratinjau Lembar Kerja (A4)</span>
+            <span style={{ fontWeight: 'bold' }}>Pratinjau Surat Tugas (A4)</span>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => window.print()} style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                 🖨️ Cetak / Print
@@ -401,7 +382,7 @@ export default function HomePage() {
               <button onClick={handleDownloadDocx} style={{ backgroundColor: '#0066cc', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                 📥 Unduh .docx
               </button>
-              <button onClick={() => setShowPreview(false)} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              <button onClick={() => setShowPreviewSurat(false)} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                 ✕ Tutup
               </button>
             </div>
@@ -552,6 +533,234 @@ export default function HomePage() {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: PREVIEW CETAK PDF SPD (LEMBAR DEPAN & BELAKANG) */}
+      {showPreviewSPD && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1000, overflowY: 'auto', padding: '20px 0' }}>
+          <div className="no-print" style={{ width: '100%', maxWidth: '210mm', backgroundColor: '#222', color: '#fff', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
+            <span style={{ fontWeight: 'bold' }}>Pratinjau Cetak SPD ({spdPrintData.length} Pegawai)</span>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => window.print()} style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                🖨️ Cetak / Simpan PDF
+              </button>
+              <button onClick={() => setShowPreviewSPD(false)} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                ✕ Tutup
+              </button>
+            </div>
+          </div>
+
+          <div className="print-area" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {spdPrintData.map((item, index) => (
+              <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                {/* HALAMAN 1 SPD (LEMBAR DEPAN) */}
+                <div style={{ width: '210mm', minHeight: '297mm', backgroundColor: '#fff', padding: '12mm 15mm', boxSizing: 'border-box', fontFamily: 'Arial, sans-serif', fontSize: '9.5pt', lineHeight: '1.25', color: '#000', boxShadow: '0 0 15px rgba(0,0,0,0.3)', pageBreakAfter: 'always' }}>
+                  
+                  {/* Kop SPD */}
+                  <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '11pt', fontWeight: 'bold' }}>PEMERINTAH KABUPATEN MALANG</div>
+                    <div style={{ fontSize: '13pt', fontWeight: 'bold' }}>INSPEKTORAT DAERAH</div>
+                    <div style={{ fontSize: '8pt' }}>Jalan Raya Mondoroko 17B Singosari, Jawa Timur</div>
+                    <div style={{ fontSize: '8pt' }}>Telepon. (0341) 451905 Laman: http://inspektorat.malangkab.go.id</div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px', fontSize: '9pt' }}>
+                    <table>
+                      <tbody>
+                        <tr><td>Lembar ke</td><td>:</td><td>....................</td></tr>
+                        <tr><td>Kode No</td><td>:</td><td>....................</td></tr>
+                        <tr><td>Nomor</td><td>:</td><td><strong>{item.nomor_spd}</strong></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '11pt', textDecoration: 'underline', marginBottom: '12px' }}>
+                    SURAT PERJALANAN DINAS (S P D)
+                  </div>
+
+                  {/* Tabel SPD Halaman 1 */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }}>
+                    <tbody>
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ width: '25px', padding: '5px', borderRight: '1px solid #000' }}>1.</td>
+                        <td style={{ width: '200px', padding: '5px', borderRight: '1px solid #000' }}>Pengguna Anggaran</td>
+                        <td style={{ padding: '5px' }}>ARRIE HENDRAWAN MAHADHIEKA, S.H.</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>2.</td>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>Nama Pegawai yang diperintah</td>
+                        <td style={{ padding: '5px' }}>
+                          <strong>{item.nama}</strong><br />
+                          NIP. {item.nip}
+                        </td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>3.</td>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>
+                          a. Pangkat dan Golongan<br />
+                          b. Jabatan<br />
+                          c. Tingkat Biaya Perjalanan Dinas
+                        </td>
+                        <td style={{ padding: '5px' }}>
+                          {item.pangkat_gol}<br />
+                          {item.jabatan}<br />
+                          Tingkat B
+                        </td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>4.</td>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>Maksud perjalanan dinas</td>
+                        <td style={{ padding: '5px', textAlign: 'justify' }}>{item.maksud_penugasan}</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>5.</td>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>Alat angkutan yang dipergunakan</td>
+                        <td style={{ padding: '5px' }}>Angkutan Darat</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>6.</td>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>
+                          a. Tempat berangkat<br />
+                          b. Tempat tujuan
+                        </td>
+                        <td style={{ padding: '5px' }}>
+                          Inspektorat Daerah Kab. Malang<br />
+                          {item.tempat_tujuan}
+                        </td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>7.</td>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>
+                          a. Lamanya Perjalanan Dinas<br />
+                          b. Tanggal berangkat<br />
+                          c. Tanggal harus kembali
+                        </td>
+                        <td style={{ padding: '5px' }}>
+                          1 (satu) hari<br />
+                          {formatTanggalIndo(item.tgl_berangkat)}<br />
+                          {formatTanggalIndo(item.tgl_kembali)}
+                        </td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>8.</td>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>Pengikut: Nama</td>
+                        <td style={{ padding: '5px' }}>-</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>9.</td>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>
+                          Pembebanan Anggaran<br />
+                          a. SKPD<br />
+                          b. Akun
+                        </td>
+                        <td style={{ padding: '5px' }}>
+                          <br />
+                          Inspektorat Daerah Kabupaten Malang<br />
+                          -
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>10.</td>
+                        <td style={{ padding: '5px', borderRight: '1px solid #000' }}>Keterangan lain-lain</td>
+                        <td style={{ padding: '5px' }}>-</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* TTD Halaman 1 */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
+                    <div style={{ width: '50%' }}>
+                      Dikeluarkan di : Singosari<br />
+                      Tanggal : {formatTanggalIndo(item.tgl_spd)}<br /><br />
+                      <strong>Pengguna Anggaran</strong><br /><br /><br /><br />
+                      <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
+                      NIP. 198008012010011018
+                    </div>
+                  </div>
+                </div>
+
+                {/* HALAMAN 2 SPD (VISUM / LEMBAR BELAKANG) */}
+                <div style={{ width: '210mm', minHeight: '297mm', backgroundColor: '#fff', padding: '12mm 15mm', boxSizing: 'border-box', fontFamily: 'Arial, sans-serif', fontSize: '9pt', lineHeight: '1.2', color: '#000', boxShadow: '0 0 15px rgba(0,0,0,0.3)', pageBreakAfter: 'always' }}>
+                  
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }}>
+                    <tbody>
+                      {/* Kolom I */}
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ width: '50%', padding: '6px', borderRight: '1px solid #000', verticalAlign: 'top' }}></td>
+                        <td style={{ width: '50%', padding: '6px', verticalAlign: 'top' }}>
+                          I. Berangkat dari : Inspektorat Daerah Kab. Malang<br />
+                          &nbsp;&nbsp;&nbsp;Ke : {item.tempat_tujuan}<br />
+                          &nbsp;&nbsp;&nbsp;Pada Tanggal : {formatTanggalIndo(item.tgl_berangkat)}<br />
+                          Plt. Inspektur Kabupaten Malang<br /><br /><br />
+                          <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
+                          NIP. 198008012010011018
+                        </td>
+                      </tr>
+                      {/* Kolom II */}
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '6px', borderRight: '1px solid #000', verticalAlign: 'top' }}>
+                          II. Tiba di : {item.tempat_tujuan}<br />
+                          &nbsp;&nbsp;&nbsp;&nbsp;Pada tanggal : {formatTanggalIndo(item.tgl_berangkat)}<br />
+                          &nbsp;&nbsp;&nbsp;&nbsp;Kepala : ..............................................<br /><br /><br />
+                          &nbsp;&nbsp;&nbsp;&nbsp;(.........................................................)<br />
+                          &nbsp;&nbsp;&nbsp;&nbsp;NIP.
+                        </td>
+                        <td style={{ padding: '6px', verticalAlign: 'top' }}>
+                          Berangkat dari : {item.tempat_tujuan}<br />
+                          Ke : Inspektorat Daerah Kab. Malang<br />
+                          Pada tanggal : {formatTanggalIndo(item.tgl_kembali)}<br />
+                          Kepala : ..............................................<br /><br /><br />
+                          (.........................................................)<br />
+                          NIP.
+                        </td>
+                      </tr>
+                      {/* Kolom III */}
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '6px', borderRight: '1px solid #000', verticalAlign: 'top' }}>
+                          III. Tiba di :<br />
+                          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Pada tanggal :<br />
+                          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Kepala :<br /><br /><br />
+                          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(.........................................................)<br />
+                          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NIP.
+                        </td>
+                        <td style={{ padding: '6px', verticalAlign: 'top' }}>
+                          Berangkat dari :<br />
+                          Ke :<br />
+                          Pada tanggal :<br />
+                          Kepala :<br /><br /><br />
+                          (.........................................................)<br />
+                          NIP.
+                        </td>
+                      </tr>
+                      {/* Kolom IV */}
+                      <tr style={{ borderBottom: '1px solid #000' }}>
+                        <td style={{ padding: '6px', borderRight: '1px solid #000', verticalAlign: 'top' }}>
+                          IV. Tiba kembali di : Inspektorat Daerah Kab. Malang<br />
+                          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Pada Tanggal : {formatTanggalIndo(item.tgl_kembali)}<br />
+                          Plt. Inspektur Kabupaten Malang<br /><br /><br />
+                          <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
+                          NIP. 198008012010011018
+                        </td>
+                        <td style={{ padding: '6px', verticalAlign: 'top', textAlign: 'justify' }}>
+                          Telah diperiksa, dengan keterangan bahwa perjalanan tersebut diatas benar dilakukan atas perintahnya dan semata-mata untuk kepentingan jabatan dalam waktu yang sesingkat-singkatnya.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <div style={{ marginTop: '10px', border: '1px solid #000', padding: '6px', fontSize: '8.5pt' }}>
+                    <strong>V. Catatan Lain-lain</strong><br />
+                    <strong>VI. PERHATIAN</strong><br />
+                    Pejabat yang berwenang menerbitkan SPPD, pegawai yang melakukan perjalanan dinas, para pejabat yang mengesahkan tanggal berangkat/tiba serta Bendaharawan bertanggung jawab berdasarkan peraturan-peraturan Keuangan Negara apabila Negara mendapat rugi akibat kesalahan.
+                  </div>
+
+                </div>
+
+              </div>
+            ))}
           </div>
         </div>
       )}
