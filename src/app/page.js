@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-// KONFIGURASI SUPABASE (Ganti dengan API Key milik Anda)
+// KONFIGURASI SUPABASE
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
@@ -141,9 +141,9 @@ export default function HomePage() {
     }
   };
 
-  // Handler Download SPD Per Orang (.docx)
+  // Handler Download SPD Per Orang (File Excel .xlsx) & Simpan Ke Supabase
   const handleDownloadSPD = async (pegawai) => {
-    const payload = {
+    const payloadSPD = {
       nomor_spd: `000.1.2.3/${nomorUrut || '...'}/${kodeOPD}/${tahun}`,
       nama: pegawai.nama,
       nip: pegawai.nip,
@@ -155,10 +155,27 @@ export default function HomePage() {
       tgl_kembali: tanggal,
     };
 
-    const response = await fetch('/api/generate-spd', {
+    // 1. Simpan Riwayat Ke Supabase
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/spd`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(payloadSPD)
+      });
+    } catch (err) {
+      console.error('Gagal menyimpan riwayat SPD ke Supabase:', err);
+    }
+
+    // 2. Generate dan Download File Excel (.xlsx)
+    const response = await fetch('/api/generate-spd-excel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payloadSPD),
     });
 
     if (response.ok) {
@@ -166,12 +183,12 @@ export default function HomePage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `SPD_${(pegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
+      a.download = `SPD_${(pegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
     } else {
-      alert('Gagal mengunduh file Word SPD.');
+      alert('Gagal mengunduh file Excel SPD.');
     }
   };
 
@@ -241,14 +258,14 @@ export default function HomePage() {
               <div key={index} style={{ borderBottom: '1px dashed #ccc', paddingBottom: '12px', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <div style={{ fontWeight: 'bold' }}>Pegawai Ke-{item.no}</div>
-                  {/* TOMBOL CETAK SPD UNTUK INDIVIDUAL PEGAWAI */}
+                  {/* TOMBOL CETAK SPD EXCEL UNTUK INDIVIDUAL PEGAWAI */}
                   {item.nama && (
                     <button
                       type="button"
                       onClick={() => handleDownloadSPD(item)}
                       style={{ backgroundColor: '#17a2b8', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
                     >
-                      📄 Cetak SPD ({item.nama.split(' ')[0]})
+                      📊 Cetak SPD Excel ({item.nama.split(' ')[0]})
                     </button>
                   )}
                 </div>
