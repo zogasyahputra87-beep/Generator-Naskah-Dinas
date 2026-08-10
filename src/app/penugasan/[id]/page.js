@@ -1,44 +1,56 @@
 'use client';
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
 export default function DetailProgresPenugasanPage({ params }) {
-  const resolvedParams = use(params);
-  const penugasanId = resolvedParams.id;
-
+  const [penugasanId, setPenugasanId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
-  const fetchDetailPenugasan = async () => {
-    try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}&select=*`, {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.length > 0) setDetail(data[0]);
-      }
-    } catch (err) {
-      console.error('Gagal mengambil detail:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Unwrap params secara aman untuk Next.js 15
   useEffect(() => {
-    if (penugasanId) fetchDetailPenugasan();
+    Promise.resolve(params).then((resolved) => {
+      if (resolved && resolved.id) {
+        setPenugasanId(resolved.id);
+      }
+    });
+  }, [params]);
+
+  // Fetch data dari Supabase setelah ID didapatkan
+  useEffect(() => {
+    if (!penugasanId) return;
+
+    async function fetchDetailPenugasan() {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}&select=*`, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            setDetail(data[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Gagal mengambil detail:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDetailPenugasan();
   }, [penugasanId]);
 
-  // Simulasi Upload ST TTD (Nanti dihubungkan ke Google Drive)
+  // Handler Upload / Link ST TTD GDrive
   const handleUploadSTSigned = async () => {
-    const linkGDrive = prompt('Masukkan Link Google Drive / File Surat Tugas yang sudah ditandatangani:');
+    const linkGDrive = prompt('Masukkan Link Google Drive Surat Tugas TTD:');
     if (!linkGDrive) return;
 
     setUploading(true);
@@ -58,8 +70,8 @@ export default function DetailProgresPenugasanPage({ params }) {
       });
 
       if (response.ok) {
-        alert('Surat Tugas TTD berhasil diunggah/di-link-kan!');
-        fetchDetailPenugasan();
+        alert('Tautan Google Drive berhasil disimpan!');
+        window.location.reload();
       }
     } catch (err) {
       alert('Gagal memperbarui status ST.');
@@ -73,12 +85,12 @@ export default function DetailProgresPenugasanPage({ params }) {
     if (!detail) return;
     const payload = {
       nomor_surat: detail.nomor_surat,
-      dasar_list: detail.dasar_hukum || [],
-      pegawai_list: detail.personil || [],
+      dasar_list: Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [],
+      pegawai_list: Array.isArray(detail.personil) ? detail.personil : [],
       penugasan: detail.maksud_penugasan,
       tanggal: detail.tanggal_surat,
       tampilkan_paraf: true,
-      paraf_list: detail.paraf_list || []
+      paraf_list: Array.isArray(detail.paraf_list) ? detail.paraf_list : []
     };
 
     const response = await fetch('/api/generate-surat', {
@@ -134,23 +146,22 @@ export default function DetailProgresPenugasanPage({ params }) {
   };
 
   if (loading) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat detail penugasan...</div>;
-  if (!detail) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Data tidak ditemukan.</div>;
+  if (!detail) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Data penugasan tidak ditemukan.</div>;
 
-  // Ekstrak Ketua Tim dan Anggota dari personil
-  const listPersonil = detail.personil || [];
+  const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
   const ketuaTim = detail.ketua_tim || (listPersonil.length > 0 ? listPersonil[0].nama : '-');
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif', paddingBottom: '40px' }}>
       
-      {/* HEADER NAVIGASI */}
+      {/* NAVIGASI */}
       <div style={{ marginBottom: '20px' }}>
         <Link href="/dashboard" style={{ color: '#2b6cb0', textDecoration: 'none', fontWeight: 'bold', fontSize: '13px' }}>
           ← Kembali ke Dashboard Penugasan
         </Link>
       </div>
 
-      {/* CARD PROFIL PENUGASAN */}
+      {/* PROFIL PENUGASAN */}
       <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #edf2f7', paddingBottom: '16px', marginBottom: '16px' }}>
           <div>
@@ -177,7 +188,7 @@ export default function DetailProgresPenugasanPage({ params }) {
           </span>
         </div>
 
-        {/* HIRARKI TIM PENUGASAN */}
+        {/* HIRARKI TIM */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '6px', border: '1px solid #edf2f7' }}>
           <div>
             <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase' }}>Obyek Pengawasan</div>
@@ -208,7 +219,7 @@ export default function DetailProgresPenugasanPage({ params }) {
             <h3 style={{ margin: 0, fontSize: '15px', color: '#1a202c' }}>Perencanaan & Persiapan</h3>
           </div>
 
-          {/* ITEM 1.1: SURAT TUGAS */}
+          {/* ITEM SURAT TUGAS */}
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', marginBottom: '12px', backgroundColor: '#fdfdfd' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <span style={{ fontWeight: 'bold', fontSize: '13px' }}>📄 Surat Tugas</span>
@@ -235,13 +246,13 @@ export default function DetailProgresPenugasanPage({ params }) {
                 </a>
               ) : (
                 <button onClick={handleUploadSTSigned} disabled={uploading} style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  📤 Upload/Link ST TTD
+                  📤 Link Google Drive ST TTD
                 </button>
               )}
             </div>
           </div>
 
-          {/* ITEM 1.2: SPD PERSONIL */}
+          {/* ITEM SPD */}
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', backgroundColor: '#fdfdfd' }}>
             <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '8px' }}>📑 SPD / SPPD Personil</div>
             
@@ -273,9 +284,6 @@ export default function DetailProgresPenugasanPage({ params }) {
             <p style={{ fontSize: '11px', color: '#a0aec0', margin: 0 }}>
               Kertas Kerja Pemeriksaan (KKP), Berita Acara, & Dokumen Lapangan.
             </p>
-            <span style={{ display: 'inline-block', marginTop: '12px', fontSize: '11px', color: '#dd6b20', fontWeight: 'bold', backgroundColor: '#feebc8', padding: '4px 8px', borderRadius: '4px' }}>
-              🔒 Siap Dibuat Pada Diskusi Berikutnya
-            </span>
           </div>
         </div>
 
@@ -288,7 +296,6 @@ export default function DetailProgresPenugasanPage({ params }) {
 
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', marginBottom: '12px', backgroundColor: '#fdfdfd' }}>
             <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>📋 Laporan Hasil Pemeriksaan (LHP)</div>
-            <p style={{ fontSize: '11px', color: '#718096', margin: '0 0 8px 0' }}>Draft LHP & Pengesahan Inspektur</p>
             <span style={{ fontSize: '10px', fontWeight: 'bold', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', color: '#4a5568' }}>
               Belum Diunggah
             </span>
@@ -296,7 +303,6 @@ export default function DetailProgresPenugasanPage({ params }) {
 
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', backgroundColor: '#fdfdfd' }}>
             <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>✅ Tindak Lanjut (TLHP)</div>
-            <p style={{ fontSize: '11px', color: '#718096', margin: '0 0 8px 0' }}>Status Rekomendasi & Matriks Pemantauan</p>
             <span style={{ fontSize: '10px', fontWeight: 'bold', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', color: '#4a5568' }}>
               Menunggu LHP
             </span>
