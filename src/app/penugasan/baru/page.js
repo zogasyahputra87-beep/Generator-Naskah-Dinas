@@ -3,14 +3,20 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-// KONFIGURASI SUPABASE
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
+
+// DASAR HUKUM DEFAULT RUTIN INSPEKTORAT
+const DASAR_HUKUM_DEFAULT = [
+  { no: '1', isi_dasar: 'Peraturan Menteri Dalam Negeri Nomor 19 Tahun 2023 tentang Pengelolaan Barang Milik Daerah' },
+  { no: '2', isi_dasar: 'Peraturan Daerah Kabupaten Malang Nomor 9 Tahun 2023 tentang Anggaran Pendapatan dan Belanja Daerah Tahun Anggaran 2024' },
+  { no: '3', isi_dasar: 'Dokumen Pelaksanaan Anggaran Inspektorat Daerah Kabupaten Malang' }
+];
 
 export default function PenugasanBaruPage() {
   const router = useRouter();
 
-  // Form State Utama
+  // Kode Klasifikasi Hybird (Bisa dipilih / diketik)
   const [klasifikasi, setKlasifikasi] = useState('700.1.2');
   const [nomorUrut, setNomorUrut] = useState('');
   const kodeOPD = '35.07.200';
@@ -27,9 +33,21 @@ export default function PenugasanBaruPage() {
   // Master Pegawai & Dynamic List
   const [masterPegawai, setMasterPegawai] = useState([]);
   const [loadingPegawai, setLoadingPegawai] = useState(true);
-  const [dasarList, setDasarList] = useState([{ no: '1', isi_dasar: '' }]);
+  
+  // State Dasar Hukum Otomatis (Bisa diedit/dihapus)
+  const [dasarList, setDasarList] = useState(DASAR_HUKUM_DEFAULT);
+
+  // State Personil
   const [pegawaiList, setPegawaiList] = useState([
     { no: '1', id_supabase: '', nama: '', nip: '', pangkat_gol: '', jabatan: '' }
+  ]);
+
+  // State Paraf Hierarki
+  const [tampilkanParaf, setTampilkanParaf] = useState(true);
+  const [parafList, setParafList] = useState([
+    { jabatan_paraf: 'Plt. Sekretaris' },
+    { jabatan_paraf: 'Inspektur Pembantu Wilayah I' },
+    { jabatan_paraf: 'Auditor Ahli Madya' }
   ]);
 
   const [saving, setSaving] = useState(false);
@@ -83,6 +101,7 @@ export default function PenugasanBaruPage() {
   const hapusDasar = (index) => {
     setDasarList(dasarList.filter((_, i) => i !== index).map((item, i) => ({ ...item, no: String(i + 1) })));
   };
+  const resetDasarDefault = () => setDasarList(DASAR_HUKUM_DEFAULT);
 
   const handlePegawaiChange = (index, field, value) => {
     const updated = [...pegawaiList];
@@ -93,6 +112,14 @@ export default function PenugasanBaruPage() {
   const hapusPegawai = (index) => {
     setPegawaiList(pegawaiList.filter((_, i) => i !== index).map((item, i) => ({ ...item, no: String(i + 1) })));
   };
+
+  const handleParafChange = (index, value) => {
+    const updated = [...parafList];
+    updated[index].jabatan_paraf = value;
+    setParafList(updated);
+  };
+  const tambahParaf = () => setParafList([...parafList, { jabatan_paraf: '' }]);
+  const hapusParaf = (index) => setParafList(parafList.filter((_, i) => i !== index));
 
   // Simpan Penugasan Baru ke Supabase
   const handleSubmitPenugasan = async (e) => {
@@ -107,7 +134,9 @@ export default function PenugasanBaruPage() {
       tanggal_spd: tanggalSPD,
       dasar_hukum: dasarList,
       personil: pegawaiList,
-      status: 'Surat Tugas' // Status awal saat penugasan dibuat
+      tampilkan_paraf: tampilkanParaf,
+      paraf_list: parafList,
+      status: 'Surat Tugas'
     };
 
     try {
@@ -126,7 +155,7 @@ export default function PenugasanBaruPage() {
         alert('Penugasan baru berhasil dibuat!');
         router.push('/dashboard');
       } else {
-        alert('Gagal menyimpan penugasan baru. Pastikan tabel penugasan sudah siap di Supabase.');
+        alert('Gagal menyimpan penugasan baru.');
       }
     } catch (err) {
       console.error('Error simpan penugasan:', err);
@@ -137,7 +166,7 @@ export default function PenugasanBaruPage() {
   };
 
   return (
-    <div style={{ padding: '30px', maxWidth: '900px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+    <div style={{ padding: '10px', maxWidth: '900px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       
       {/* HEADER NAVIGASI */}
       <div style={{ marginBottom: '20px' }}>
@@ -156,11 +185,22 @@ export default function PenugasanBaruPage() {
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Kode Klasifikasi</label>
-              <select value={klasifikasi} onChange={(e) => setKlasifikasi(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc' }}>
+              <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Kode Klasifikasi (Ketik / Pilih)</label>
+              {/* INPUT HYBIRD KLASIFIKASI */}
+              <input 
+                list="klasifikasi-options" 
+                value={klasifikasi} 
+                onChange={(e) => setKlasifikasi(e.target.value)} 
+                placeholder="Pilih atau ketik kode..."
+                required 
+                style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+              />
+              <datalist id="klasifikasi-options">
                 <option value="700.1.2">700.1.2 (Pengawasan/Audit)</option>
                 <option value="000.1.2.3">000.1.2.3 (Umum/Kedinasan)</option>
-              </select>
+                <option value="800.1.1">800.1.1 (Kepegawaian)</option>
+                <option value="050.1.1">050.1.1 (Perencanaan)</option>
+              </datalist>
             </div>
             <div>
               <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Nomor Urut Surat</label>
@@ -200,17 +240,23 @@ export default function PenugasanBaruPage() {
           </div>
         </div>
 
-        {/* Dasar Hukum */}
+        {/* Dasar Hukum Otomatis (Default + Custom) */}
         <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '6px' }}>
-          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px', fontSize: '14px' }}>Dasar Hukum Penugasan:</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <label style={{ fontWeight: 'bold', fontSize: '14px' }}>Dasar Hukum Penugasan:</label>
+            <button type="button" onClick={resetDasarDefault} style={{ fontSize: '11px', color: '#2b6cb0', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+              🔄 Reset ke Dasar Hukum Default Rutin
+            </button>
+          </div>
+
           {dasarList.map((item, index) => (
             <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-              <span style={{ padding: '8px 0' }}>{item.no}.</span>
+              <span style={{ padding: '8px 0', width: '20px' }}>{item.no}.</span>
               <input value={item.isi_dasar} onChange={(e) => handleDasarChange(index, e.target.value)} placeholder="Isi dasar hukum..." required style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
               {dasarList.length > 1 && <button type="button" onClick={() => hapusDasar(index)} style={{ color: 'red', cursor: 'pointer', background: 'none', border: 'none' }}>Hapus</button>}
             </div>
           ))}
-          <button type="button" onClick={tambahDasar} style={{ padding: '6px 12px', cursor: 'pointer', backgroundColor: '#edf2f7', border: '1px solid #cbd5e0', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}>+ Tambah Dasar Hukum</button>
+          <button type="button" onClick={tambahDasar} style={{ padding: '6px 12px', cursor: 'pointer', backgroundColor: '#edf2f7', border: '1px solid #cbd5e0', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}>+ Tambah Baris Dasar Hukum</button>
         </div>
 
         {/* Personil Penugasan */}
@@ -223,7 +269,6 @@ export default function PenugasanBaruPage() {
                 Personil Ke-{item.no}
               </div>
 
-              {/* Pilih Otomatis dari Supabase */}
               <div style={{ marginBottom: '10px', backgroundColor: '#f7fafc', padding: '8px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
                 <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#4a5568' }}>
                   ⚡ Pilih Cepat dari Bezitting Pegawai:
@@ -255,6 +300,25 @@ export default function PenugasanBaruPage() {
           ))}
 
           <button type="button" onClick={tambahPegawai} style={{ padding: '6px 12px', cursor: 'pointer', backgroundColor: '#edf2f7', border: '1px solid #cbd5e0', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}>+ Tambah Personil</button>
+        </div>
+
+        {/* PARAF HIERARKI */}
+        <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '6px', backgroundColor: '#f9f9f9' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>
+            <input type="checkbox" checked={tampilkanParaf} onChange={(e) => setTampilkanParaf(e.target.checked)} />
+            Cetak Tabel Paraf Hierarki
+          </label>
+          {tampilkanParaf && (
+            <div style={{ marginTop: '10px', paddingLeft: '10px' }}>
+              {parafList.map((item, index) => (
+                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
+                  <input value={item.jabatan_paraf} onChange={(e) => handleParafChange(index, e.target.value)} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                  <button type="button" onClick={() => hapusParaf(index)} style={{ color: 'red', cursor: 'pointer', background: 'none', border: 'none', fontSize: '12px' }}>Hapus</button>
+                </div>
+              ))}
+              <button type="button" onClick={tambahParaf} style={{ marginTop: '6px', fontSize: '12px', cursor: 'pointer', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', padding: '4px 8px' }}>+ Tambah Baris Paraf</button>
+            </div>
+          )}
         </div>
 
         {/* Tombol Simpan */}
