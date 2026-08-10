@@ -34,11 +34,11 @@ export async function POST(request) {
 
     const zip = new PizZip(content);
     
-    // Gunakan parser aman agar file docx tidak corrupt
+    // Inisialisasi Docxtemplater dengan opsi penanganan XML aman
     const doc = new Docxtemplater(zip, { 
       paragraphLoop: true, 
       linebreaks: true,
-      nullGetter: () => '' 
+      nullGetter: () => '-'
     });
 
     const formattedPegawaiSPD = listPegawaiInput.map((p) => ({
@@ -63,12 +63,12 @@ export async function POST(request) {
         ...singlePegawai,
         pegawai_spd: formattedPegawaiSPD
       });
-    } catch (renderError) {
-      console.error('Error rendering docx XML:', renderError);
+    } catch (renderErr) {
+      console.error('Detail Error Render Docx:', renderErr);
       return NextResponse.json({ 
         success: false, 
-        message: 'Format tag di template_spd.docx tidak valid.', 
-        detail: renderError.toString() 
+        message: 'Gagal merender template Word. Periksa tag {#pegawai_spd} di file Word.', 
+        error: renderErr.toString() 
       }, { status: 500 });
     }
 
@@ -90,7 +90,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error SPD Word:', error);
-    return NextResponse.json({ success: false, message: 'Gagal membuat file SPD.', detail: error.toString() }, { status: 500 });
+    console.error('Error SPD Word Server:', error);
+    return NextResponse.json({ success: false, message: 'Terjadi kesalahan pada server API SPD.', detail: error.toString() }, { status: 500 });
   }
 }
