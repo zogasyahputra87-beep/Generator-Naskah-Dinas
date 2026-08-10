@@ -30,9 +30,11 @@ export async function POST(request) {
     const zip = new PizZip(content);
     const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
 
-    // Format perulangan dasar hukum agar ada tanda titik koma / titik di akhir
-    const formattedDasarList = (body.dasar_list || []).map((d, index, arr) => {
-      let teks = (d.isi_dasar || '').trim();
+    // Format list dasar hukum tanpa nilai undefined
+    const rawDasar = Array.isArray(body.dasar_list) ? body.dasar_list : (Array.isArray(body.dasar_hukum) ? body.dasar_hukum : []);
+    const formattedDasarList = rawDasar.map((d, index, arr) => {
+      let teks = typeof d === 'string' ? d : (d.isi_dasar || '');
+      teks = teks.trim();
       const isLast = index === arr.length - 1;
 
       if (isLast && teks.length > 0) {
@@ -49,8 +51,9 @@ export async function POST(request) {
       };
     });
 
-    // Format list pegawai
-    const formattedPegawaiList = (body.pegawai_list || body.personil || []).map((p, index) => ({
+    // Format list pegawai tanpa nilai undefined
+    const rawPegawai = Array.isArray(body.pegawai_list) ? body.pegawai_list : (Array.isArray(body.personil) ? body.personil : []);
+    const formattedPegawaiList = rawPegawai.map((p, index) => ({
       no: String(index + 1),
       nama: p.nama || '-',
       nip: p.nip || '-',
@@ -58,12 +61,12 @@ export async function POST(request) {
       jabatan: p.jabatan || '-'
     }));
 
-    // Format list paraf hierarki
-    const formattedParafList = (body.paraf_list || []).map((item) => ({
+    // Format list paraf
+    const rawParaf = Array.isArray(body.paraf_list) ? body.paraf_list : [];
+    const formattedParafList = rawParaf.map((item) => ({
       jabatan_paraf: item.jabatan_paraf || ''
     }));
 
-    // Data payload lengkap dikirim ke docxtemplater
     doc.render({
       nomor_surat: body.nomor_surat || '-',
       dasar_list: formattedDasarList,
