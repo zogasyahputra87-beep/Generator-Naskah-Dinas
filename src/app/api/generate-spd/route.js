@@ -14,10 +14,14 @@ function formatTanggalIndo(tanggalStr) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const listPegawai = body.pegawai_spd || (body.nama ? [body] : []);
+    
+    // Ambil list pegawai yang dikirim (bisa 1 orang atau banyak orang)
+    const listPegawaiInput = Array.isArray(body.pegawai_spd) 
+      ? body.pegawai_spd 
+      : (body.nama ? [body] : []);
 
-    if (listPegawai.length === 0) {
-      return NextResponse.json({ success: false, message: 'Tidak ada data pegawai.' }, { status: 400 });
+    if (listPegawaiInput.length === 0) {
+      return NextResponse.json({ success: false, message: 'Tidak ada data personil untuk SPD.' }, { status: 400 });
     }
 
     const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_spd.docx');
@@ -26,31 +30,42 @@ export async function POST(request) {
     try {
       content = await fs.readFile(templatePath);
     } catch (err) {
-      return NextResponse.json({ success: false, message: 'File template_spd.docx tidak ditemukan di public/templates/' }, { status: 404 });
+      return NextResponse.json({ success: false, message: 'File template_spd.docx tidak ditemukan.' }, { status: 404 });
     }
 
-    // Ambil data pegawai pertama (atau gabungan)
-    const dataPegawai = listPegawai[0];
     const zip = new PizZip(content);
     const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
 
-    doc.render({
-      nomor_spd: dataPegawai.nomor_spd || body.nomor_surat || '-',
-      nama: dataPegawai.nama || '-',
-      nip: dataPegawai.nip || '-',
-      pangkat_gol: dataPegawai.pangkat_gol || '-',
-      jabatan: dataPegawai.jabatan || '-',
-      maksud_penugasan: dataPegawai.maksud_penugasan || body.maksud_penugasan || '-',
-      tempat_tujuan: dataPegawai.tempat_tujuan || body.tempat_tujuan || '-',
-      tgl_berangkat: formatTanggalIndo(dataPegawai.tgl_berangkat || body.tanggal_surat),
-      tgl_kembali: formatTanggalIndo(dataPegawai.tgl_kembali || body.tanggal_surat),
-      tgl_spd: formatTanggalIndo(dataPegawai.tgl_spd || body.tanggal_spd || body.tanggal_surat),
+    // Format array pegawai_spd untuk loop template docx
+    const formattedPegawaiSPD = listPegawaiInput.map((p) => ({
+      nomor_spd: p.nomor_spd || body.nomor_surat || '-',
+      nama: p.nama || '-',
+      nip: p.nip || '-',
+      pangkat_gol: p.pangkat_gol || '-',
+      jabatan: p.jabatan || '-',
+      maksud_penugasan: p.maksud_penugasan || body.maksud_penugasan || '-',
+      tempat_tujuan: p.tempat_tujuan || body.tempat_tujuan || '-',
+      tgl_berangkat: formatTanggalIndo(p.tgl_berangkat || body.tanggal_surat),
+      tgl_kembali: formatTanggalIndo(p.tgl_kembali || body.tanggal_surat),
+      tgl_spd: formatTanggalIndo(p.tgl_spd || body.tanggal_spd || body.tanggal_surat),
       pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
       nip_pa: '198008012010011018'
+    }));
+
+    // Data untuk template single (jika template belum memakai {#pegawai_spd})
+    const singlePegawai = formattedPegawaiSPD[0];
+
+    doc.render({
+      ...singlePegawai,
+      pegawai_spd: formattedPegawaiSPD // Dikirim sebagai array untuk multi-page
     });
 
     const buf = doc.getZip().generate({ type: 'nodebuffer' });
-    const namaFile = `SPD_${(dataPegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
+    
+    // Nama file dinamis
+    const namaFile = listPegawaiInput.length > 1 
+      ? `SPD_Gabungan_${listPegawaiInput.length}_Personil.docx` 
+      : `SPD_${(singlePegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
 
     return new NextResponse(buf, {
       status: 200,
@@ -59,8 +74,9 @@ export async function POST(request) {
         'Content-Disposition': `attachment; filename="${namaFile}"`,
       },
     });
+
   } catch (error) {
     console.error('Error SPD Word:', error);
-    return NextResponse.json({ success: false, message: 'Gagal membuat file Word SPD.' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'Gagal membuat file SPD.' }, { status: 500 });
   }
 }
