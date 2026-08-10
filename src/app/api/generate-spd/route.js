@@ -22,7 +22,6 @@ export async function POST(request) {
 
     const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_spd.docx');
     
-    // Cek file template Word
     let content;
     try {
       content = await fs.readFile(templatePath);
@@ -30,21 +29,22 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'File template_spd.docx tidak ditemukan di public/templates/' }, { status: 404 });
     }
 
+    // Ambil data pegawai pertama (atau gabungan)
     const dataPegawai = listPegawai[0];
     const zip = new PizZip(content);
     const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
 
     doc.render({
-      nomor_spd: dataPegawai.nomor_spd || '-',
+      nomor_spd: dataPegawai.nomor_spd || body.nomor_surat || '-',
       nama: dataPegawai.nama || '-',
       nip: dataPegawai.nip || '-',
       pangkat_gol: dataPegawai.pangkat_gol || '-',
       jabatan: dataPegawai.jabatan || '-',
-      maksud_penugasan: dataPegawai.maksud_penugasan || '-',
-      tempat_tujuan: dataPegawai.tempat_tujuan || '-',
-      tgl_berangkat: formatTanggalIndo(dataPegawai.tgl_berangkat),
-      tgl_kembali: formatTanggalIndo(dataPegawai.tgl_kembali),
-      tgl_spd: formatTanggalIndo(dataPegawai.tgl_spd || dataPegawai.tgl_berangkat),
+      maksud_penugasan: dataPegawai.maksud_penugasan || body.maksud_penugasan || '-',
+      tempat_tujuan: dataPegawai.tempat_tujuan || body.tempat_tujuan || '-',
+      tgl_berangkat: formatTanggalIndo(dataPegawai.tgl_berangkat || body.tanggal_surat),
+      tgl_kembali: formatTanggalIndo(dataPegawai.tgl_kembali || body.tanggal_surat),
+      tgl_spd: formatTanggalIndo(dataPegawai.tgl_spd || body.tanggal_spd || body.tanggal_surat),
       pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
       nip_pa: '198008012010011018'
     });
