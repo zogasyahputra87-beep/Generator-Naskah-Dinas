@@ -15,7 +15,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     
-    // Ambil list pegawai yang dikirim (bisa 1 orang atau banyak orang)
+    // Ambil list pegawai yang dikirim
     const listPegawaiInput = Array.isArray(body.pegawai_spd) 
       ? body.pegawai_spd 
       : (body.nama ? [body] : []);
@@ -34,7 +34,11 @@ export async function POST(request) {
     }
 
     const zip = new PizZip(content);
-    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+    const doc = new Docxtemplater(zip, { 
+      paragraphLoop: true, 
+      linebreaks: true,
+      nullGetter: () => '-' 
+    });
 
     // Format array pegawai_spd untuk loop template docx
     const formattedPegawaiSPD = listPegawaiInput.map((p) => ({
@@ -52,17 +56,16 @@ export async function POST(request) {
       nip_pa: '198008012010011018'
     }));
 
-    // Data untuk template single (jika template belum memakai {#pegawai_spd})
     const singlePegawai = formattedPegawaiSPD[0];
 
+    // Render data tunggal & array sekaligus agar aman untuk berbagai versi template Word
     doc.render({
       ...singlePegawai,
-      pegawai_spd: formattedPegawaiSPD // Dikirim sebagai array untuk multi-page
+      pegawai_spd: formattedPegawaiSPD
     });
 
     const buf = doc.getZip().generate({ type: 'nodebuffer' });
     
-    // Nama file dinamis
     const namaFile = listPegawaiInput.length > 1 
       ? `SPD_Gabungan_${listPegawaiInput.length}_Personil.docx` 
       : `SPD_${(singlePegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
@@ -77,6 +80,6 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Error SPD Word:', error);
-    return NextResponse.json({ success: false, message: 'Gagal membuat file SPD.' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'Gagal membuat file SPD.', detail: error.toString() }, { status: 500 });
   }
 }
