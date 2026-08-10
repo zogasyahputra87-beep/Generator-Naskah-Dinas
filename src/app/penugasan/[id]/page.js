@@ -10,8 +10,8 @@ export default function DetailProgresPenugasanPage({ params }) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [selectedPersonil, setSelectedPersonil] = useState([]);
 
-  // Unwrap params secara aman untuk Next.js 15
   useEffect(() => {
     Promise.resolve(params).then((resolved) => {
       if (resolved && resolved.id) {
@@ -20,7 +20,6 @@ export default function DetailProgresPenugasanPage({ params }) {
     });
   }, [params]);
 
-  // Fetch data dari Supabase setelah ID didapatkan
   useEffect(() => {
     if (!penugasanId) return;
 
@@ -36,6 +35,9 @@ export default function DetailProgresPenugasanPage({ params }) {
           const data = await response.json();
           if (data && data.length > 0) {
             setDetail(data[0]);
+            const personil = Array.isArray(data[0].personil) ? data[0].personil : [];
+            // Secara default semua personil tercentang
+            setSelectedPersonil(personil.map((_, idx) => idx));
           }
         }
       } catch (err) {
@@ -48,35 +50,21 @@ export default function DetailProgresPenugasanPage({ params }) {
     fetchDetailPenugasan();
   }, [penugasanId]);
 
-  // Handler Upload / Link ST TTD GDrive
-  const handleUploadSTSigned = async () => {
-    const linkGDrive = prompt('Masukkan Link Google Drive Surat Tugas TTD:');
-    if (!linkGDrive) return;
+  // Handler Checkbox Personil
+  const handleTogglePersonil = (index) => {
+    if (selectedPersonil.includes(index)) {
+      setSelectedPersonil(selectedPersonil.filter(i => i !== index));
+    } else {
+      setSelectedPersonil([...selectedPersonil, index]);
+    }
+  };
 
-    setUploading(true);
-    try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          link_st_ttd: linkGDrive,
-          status_st: 'Disahkan (Sudah TTD)'
-        })
-      });
-
-      if (response.ok) {
-        alert('Tautan Google Drive berhasil disimpan!');
-        window.location.reload();
-      }
-    } catch (err) {
-      alert('Gagal memperbarui status ST.');
-    } finally {
-      setUploading(false);
+  const handleSelectAllPersonil = () => {
+    const listPersonil = Array.isArray(detail?.personil) ? detail.personil : [];
+    if (selectedPersonil.length === listPersonil.length) {
+      setSelectedPersonil([]);
+    } else {
+      setSelectedPersonil(listPersonil.map((_, idx) => idx));
     }
   };
 
@@ -111,7 +99,7 @@ export default function DetailProgresPenugasanPage({ params }) {
     }
   };
 
-  // Handler Unduh Word SPD
+  // Handler Unduh SPD Tunggal
   const handleDownloadSPDWord = async (personil) => {
     if (!detail) return;
     const payloadSPD = {
@@ -142,6 +130,53 @@ export default function DetailProgresPenugasanPage({ params }) {
       document.body.appendChild(a);
       a.click();
       a.remove();
+    }
+  };
+
+  // Handler Unduh SPD Keseluruhan / Terpilih (Massal)
+  const handleDownloadSPDMassal = async () => {
+    if (!detail) return;
+    const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
+    const targetPersonil = listPersonil.filter((_, idx) => selectedPersonil.includes(idx));
+
+    if (targetPersonil.length === 0) {
+      alert('Pilih minimal satu personil untuk mendownload SPD.');
+      return;
+    }
+
+    for (const p of targetPersonil) {
+      await handleDownloadSPDWord(p);
+    }
+  };
+
+  const handleUploadSTSigned = async () => {
+    const linkGDrive = prompt('Masukkan Link Google Drive Surat Tugas TTD:');
+    if (!linkGDrive) return;
+
+    setUploading(true);
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          link_st_ttd: linkGDrive,
+          status_st: 'Disahkan (Sudah TTD)'
+        })
+      });
+
+      if (response.ok) {
+        alert('Tautan Google Drive berhasil disimpan!');
+        window.location.reload();
+      }
+    } catch (err) {
+      alert('Gagal memperbarui status ST.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -219,7 +254,7 @@ export default function DetailProgresPenugasanPage({ params }) {
             <h3 style={{ margin: 0, fontSize: '15px', color: '#1a202c' }}>Perencanaan & Persiapan</h3>
           </div>
 
-          {/* ITEM SURAT TUGAS */}
+          {/* SURAT TUGAS */}
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', marginBottom: '12px', backgroundColor: '#fdfdfd' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <span style={{ fontWeight: 'bold', fontSize: '13px' }}>📄 Surat Tugas</span>
@@ -252,23 +287,46 @@ export default function DetailProgresPenugasanPage({ params }) {
             </div>
           </div>
 
-          {/* ITEM SPD */}
+          {/* SPD PERSONIL DENGAN OPSI PILIH & DOWNLOAD MASSAL */}
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', backgroundColor: '#fdfdfd' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '8px' }}>📑 SPD / SPPD Personil</div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontWeight: 'bold', fontSize: '13px' }}>📑 SPD / SPPD Personil</span>
+              <button 
+                onClick={handleSelectAllPersonil}
+                style={{ fontSize: '10px', color: '#2b6cb0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                {selectedPersonil.length === listPersonil.length ? 'Batal Pilih Semua' : 'Pilih Semua'}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
               {listPersonil.map((p, idx) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', backgroundColor: '#f7fafc', borderRadius: '4px', fontSize: '12px' }}>
-                  <div>
-                    <strong style={{ display: 'block' }}>{p.nama}</strong>
-                    <span style={{ color: '#718096', fontSize: '10px' }}>{p.jabatan}</span>
-                  </div>
-                  <button onClick={() => handleDownloadSPDWord(p)} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '3px', fontSize: '11px', cursor: 'pointer' }}>
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', backgroundColor: '#f7fafc', borderRadius: '4px', fontSize: '12px', border: '1px solid #edf2f7' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1 }}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedPersonil.includes(idx)} 
+                      onChange={() => handleTogglePersonil(idx)} 
+                    />
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '12px' }}>{p.nama}</strong>
+                      <span style={{ color: '#718096', fontSize: '10px' }}>{p.jabatan}</span>
+                    </div>
+                  </label>
+                  <button onClick={() => handleDownloadSPDWord(p)} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>
                     Word
                   </button>
                 </div>
               ))}
             </div>
+
+            {/* TOMBOL DOWNLOAD KESELURAHAN / TERPILIH */}
+            <button 
+              onClick={handleDownloadSPDMassal}
+              style={{ width: '100%', backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              📥 Download SPD Terpilih ({selectedPersonil.length})
+            </button>
           </div>
         </div>
 
