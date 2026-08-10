@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
-import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
-import fs from 'fs';
+import PizZip from 'pizzip';
 import path from 'path';
+import fs from 'fs/promises';
 
-// Helper format tanggal Indonesia (misal: "6 Agustus 2026")
 function formatTanggalIndo(tanggalStr) {
   if (!tanggalStr) return '-';
   const opsi = { day: 'numeric', month: 'long', year: 'numeric' };
@@ -16,103 +15,80 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    const templatePath = path.join(
-      process.cwd(),
-      'public',
-      'templates',
-      'template_surat_tugas.docx'
-    );
+    const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_surat_tugas.docx');
+    
+    let content;
+    try {
+      content = await fs.readFile(templatePath);
+    } catch (err) {
+      return NextResponse.json(
+        { success: false, message: 'File template_surat_tugas.docx tidak ditemukan di public/templates/' },
+        { status: 404 }
+      );
+    }
 
-    const content = fs.readFileSync(templatePath, 'binary');
     const zip = new PizZip(content);
+    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
 
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-    });
+    // Format perulangan dasar hukum agar ada tanda titik koma / titik di akhir
+    const formattedDasarList = (body.dasar_list || []).map((d, index, arr) => {
+      let teks = (d.isi_dasar || '').trim();
+      const isLast = index === arr.length - 1;
 
-    const rawDasarList = body.dasar_list || [];
-    const totalDasar = rawDasarList.length;
-
-    // IDE UTAMA DASAR HUKUM:
-    // - Label "Dasar" & ":" HANYA diberikan ke indeks 0 (baris pertama)
-    // - Indeks 1, 2, dst. diberi string kosong "" agar tidak mengulang
-    const formattedDasarList = rawDasarList.map((item, index) => {
-      const isPertama = index === 0;
-      const isTerakhir = index === totalDasar - 1;
-      let teksDasar = (item.isi_dasar || '').trim();
-
-      if (teksDasar.length > 0) {
-        while (teksDasar.endsWith('.') || teksDasar.endsWith(';')) {
-          teksDasar = teksDasar.slice(0, -1).trim();
-        }
-
-        if (isTerakhir) {
-          teksDasar = `${teksDasar}, dengan ini:`;
-        } else {
-          teksDasar = `${teksDasar};`;
-        }
+      if (isLast && teks.length > 0) {
+        if (teks.endsWith('.')) teks = teks.slice(0, -1);
+        teks = `${teks}, dengan ini:`;
+      } else if (teks.length > 0) {
+        if (teks.endsWith('.')) teks = teks.slice(0, -1);
+        teks = `${teks};`;
       }
 
       return {
-        // Trik penghapusan pengulangan kata Dasar & titik dua
-        label_dasar: isPertama ? 'Dasar' : '',
-        label_titik2: isPertama ? ':' : '',
         no: String(index + 1),
-        isi_dasar: teksDasar
+        isi_dasar: teks
       };
     });
 
-    // IDE UTAMA PEGAWAI:
-    // - Label "Kepada" & ":" HANYA diberikan ke indeks 0 (pegawai pertama)
-    const formattedPegawaiList = (body.pegawai_list || []).map((item, index) => {
-      const isPertama = index === 0;
-      return {
-        label_kepada: isPertama ? 'Kepada' : '',
-        label_titik2: isPertama ? ':' : '',
-        no: String(index + 1),
-        nama: item.nama || '',
-        nip: item.nip || '',
-        pangkat_gol: item.pangkat_gol || '',
-        jabatan: item.jabatan || ''
-      };
-    });
+    // Format list pegawai
+    const formattedPegawaiList = (body.pegawai_list || body.personil || []).map((p, index) => ({
+      no: String(index + 1),
+      nama: p.nama || '-',
+      nip: p.nip || '-',
+      pangkat_gol: p.pangkat_gol || '-',
+      jabatan: p.jabatan || '-'
+    }));
 
+    // Format list paraf hierarki
+    const formattedParafList = (body.paraf_list || []).map((item) => ({
+      jabatan_paraf: item.jabatan_paraf || ''
+    }));
+
+    // Data payload lengkap dikirim ke docxtemplater
     doc.render({
       nomor_surat: body.nomor_surat || '-',
-      penugasan: body.penugasan || '-',
-      tanggal: formatTanggalIndo(body.tanggal),
-
-      // Array Dasar Hukum
-      dasar_list: formattedDasarList.length > 0 ? formattedDasarList : [{ label_dasar: 'Dasar', label_titik2: ':', no: '1', isi_dasar: ', dengan ini:' }],
-
-      // Array Pegawai
-      pegawai_list: formattedPegawaiList.length > 0 ? formattedPegawaiList : [{ label_kepada: 'Kepada', label_titik2: ':', no: '1', nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
-
-      // Paraf Hierarki
-      tampilkan_paraf: body.tampilkan_paraf ?? true,
-      paraf_list: body.paraf_list || []
+      dasar_list: formattedDasarList,
+      pegawai_list: formattedPegawaiList,
+      penugasan: body.penugasan || body.maksud_penugasan || '-',
+      tanggal: formatTanggalIndo(body.tanggal || body.tanggal_surat),
+      tampilkan_paraf: body.tampilkan_paraf !== false,
+      paraf_list: formattedParafList
     });
 
-    const buffer = doc.getZip().generate({
-      type: 'nodebuffer',
-      compression: 'DEFLATE',
-    });
+    const buf = doc.getZip().generate({ type: 'nodebuffer' });
+    const namaFile = `Surat_Tugas_${(body.nomor_surat || 'Draft').replace(/[\/\s]+/g, '_')}.docx`;
 
-    const namaFile = `Surat_Tugas_${(body.nomor_surat || 'Baru').replace(/[\/\s]+/g, '_')}.docx`;
-
-    return new NextResponse(buffer, {
+    return new NextResponse(buf, {
       status: 200,
       headers: {
-        'Content-Type':
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'Content-Disposition': `attachment; filename="${namaFile}"`,
       },
     });
+
   } catch (error) {
-    console.error('Gagal generate surat:', error);
+    console.error('Error Surat Tugas Word:', error);
     return NextResponse.json(
-      { success: false, message: 'Gagal membuat dokumen Word.' },
+      { success: false, message: 'Gagal membuat Surat Tugas Word.', detail: error.toString() },
       { status: 500 }
     );
   }
