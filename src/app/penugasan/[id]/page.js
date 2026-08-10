@@ -2,50 +2,46 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 
-// KONFIGURASI SUPABASE
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
-export default function DetailPenugasanPage({ params }) {
-  // Unwrap params di Next.js 15+ App Router
+export default function DetailProgresPenugasanPage({ params }) {
   const resolvedParams = use(params);
   const penugasanId = resolvedParams.id;
 
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  // Fetch Data Detail Penugasan berdasarkan ID
-  useEffect(() => {
-    async function fetchDetailPenugasan() {
-      try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}&select=*`, {
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.length > 0) {
-            setDetail(data[0]);
-          }
+  const fetchDetailPenugasan = async () => {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}&select=*`, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
         }
-      } catch (err) {
-        console.error('Gagal mengambil detail penugasan:', err);
-      } finally {
-        setLoading(false);
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.length > 0) setDetail(data[0]);
       }
+    } catch (err) {
+      console.error('Gagal mengambil detail:', err);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (penugasanId) {
-      fetchDetailPenugasan();
-    }
+  useEffect(() => {
+    if (penugasanId) fetchDetailPenugasan();
   }, [penugasanId]);
 
-  // Handler Update Status Progres
-  const handleUpdateStatus = async (statusBaru) => {
-    setUpdatingStatus(true);
+  // Simulasi Upload ST TTD (Nanti dihubungkan ke Google Drive)
+  const handleUploadSTSigned = async () => {
+    const linkGDrive = prompt('Masukkan Link Google Drive / File Surat Tugas yang sudah ditandatangani:');
+    if (!linkGDrive) return;
+
+    setUploading(true);
     try {
       const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}`, {
         method: 'PATCH',
@@ -55,20 +51,20 @@ export default function DetailPenugasanPage({ params }) {
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Prefer': 'return=minimal'
         },
-        body: JSON.stringify({ status: statusBaru })
+        body: JSON.stringify({
+          link_st_ttd: linkGDrive,
+          status_st: 'Disahkan (Sudah TTD)'
+        })
       });
 
       if (response.ok) {
-        setDetail(prev => ({ ...prev, status: statusBaru }));
-        alert(`Status penugasan berhasil diperbarui menjadi: ${statusBaru}`);
-      } else {
-        alert('Gagal memperbarui status penugasan.');
+        alert('Surat Tugas TTD berhasil diunggah/di-link-kan!');
+        fetchDetailPenugasan();
       }
     } catch (err) {
-      console.error('Error update status:', err);
-      alert('Terjadi kesalahan koneksi.');
+      alert('Gagal memperbarui status ST.');
     } finally {
-      setUpdatingStatus(false);
+      setUploading(false);
     }
   };
 
@@ -82,11 +78,7 @@ export default function DetailPenugasanPage({ params }) {
       penugasan: detail.maksud_penugasan,
       tanggal: detail.tanggal_surat,
       tampilkan_paraf: true,
-      paraf_list: [
-        { jabatan_paraf: 'Plt. Sekretaris' },
-        { jabatan_paraf: 'Inspektur Pembantu Wilayah I' },
-        { jabatan_paraf: 'Auditor Ahli Madya' }
-      ]
+      paraf_list: detail.paraf_list || []
     };
 
     const response = await fetch('/api/generate-surat', {
@@ -104,8 +96,6 @@ export default function DetailPenugasanPage({ params }) {
       document.body.appendChild(a);
       a.click();
       a.remove();
-    } else {
-      alert('Gagal mengunduh Surat Tugas.');
     }
   };
 
@@ -140,170 +130,176 @@ export default function DetailPenugasanPage({ params }) {
       document.body.appendChild(a);
       a.click();
       a.remove();
-    } else {
-      alert('Gagal mengunduh SPD Word. Pastikan file template_spd.docx sudah ada.');
     }
   };
 
-  if (loading) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif', color: '#718096' }}>
-        Memuat detail penugasan...
-      </div>
-    );
-  }
+  if (loading) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat detail penugasan...</div>;
+  if (!detail) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Data tidak ditemukan.</div>;
 
-  if (!detail) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>
-        <h2>Data penugasan tidak ditemukan.</h2>
-        <Link href="/dashboard" style={{ color: '#2b6cb0', textDecoration: 'none', fontWeight: 'bold' }}>
-          ← Kembali ke Dashboard
-        </Link>
-      </div>
-    );
-  }
-
-  // Menentukan langkah mana yang sedang aktif
-  const currentStatus = detail.status || 'Surat Tugas';
-  const isLHPActive = currentStatus === 'Proses LHP' || currentStatus === 'Selesai TLHP';
-  const isTLHPActive = currentStatus === 'Selesai TLHP';
+  // Ekstrak Ketua Tim dan Anggota dari personil
+  const listPersonil = detail.personil || [];
+  const ketuaTim = detail.ketua_tim || (listPersonil.length > 0 ? listPersonil[0].nama : '-');
 
   return (
-    <div style={{ padding: '30px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif', paddingBottom: '40px' }}>
       
-      {/* HEADER & NAVIGASI */}
-      <div style={{ marginBottom: '24px' }}>
-        <Link href="/dashboard" style={{ color: '#2b6cb0', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px' }}>
-          ← Kembali ke Dashboard
+      {/* HEADER NAVIGASI */}
+      <div style={{ marginBottom: '20px' }}>
+        <Link href="/dashboard" style={{ color: '#2b6cb0', textDecoration: 'none', fontWeight: 'bold', fontSize: '13px' }}>
+          ← Kembali ke Dashboard Penugasan
         </Link>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+      </div>
+
+      {/* CARD PROFIL PENUGASAN */}
+      <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #edf2f7', paddingBottom: '16px', marginBottom: '16px' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '22px', color: '#1a202c' }}>
-              Detail Penugasan: {detail.nomor_surat}
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#2b6cb0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Profil Penugasan Pengawasan
+            </span>
+            <h1 style={{ margin: '4px 0 0 0', fontSize: '20px', color: '#1a202c' }}>
+              {detail.maksud_penugasan}
             </h1>
-            <p style={{ margin: '4px 0 0 0', color: '#718096' }}>{detail.maksud_penugasan}</p>
+            <div style={{ fontSize: '13px', color: '#718096', marginTop: '4px' }}>
+              Nomor Penugasan: <strong>{detail.nomor_surat}</strong>
+            </div>
           </div>
+
           <span style={{ 
-            padding: '6px 12px', 
+            padding: '6px 14px', 
             borderRadius: '20px', 
-            fontSize: '13px', 
+            fontSize: '12px', 
             fontWeight: 'bold',
-            backgroundColor: currentStatus === 'Selesai TLHP' ? '#c6f6d5' : '#feebc8',
-            color: currentStatus === 'Selesai TLHP' ? '#22543d' : '#744210'
+            backgroundColor: detail.status === 'Selesai TLHP' ? '#c6f6d5' : '#feebc8',
+            color: detail.status === 'Selesai TLHP' ? '#22543d' : '#744210'
           }}>
-            Status: {currentStatus}
+            Status: {detail.status || 'Surat Tugas'}
           </span>
         </div>
-      </div>
 
-      {/* TIMELINE PROGRES PENUGASAN (5. PROGRES PENUGASAN) */}
-      <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
-        <h3 style={{ margin: '0 0 20px 0', fontSize: '16px', color: '#2d3748' }}>Alur Progres Naskah Dinas</h3>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', position: 'relative' }}>
-          
-          {/* Tahap 1: Surat Tugas */}
-          <div style={{ padding: '16px', borderRadius: '6px', border: '2px solid #2b6cb0', backgroundColor: '#ebf8ff' }}>
-            <div style={{ fontWeight: 'bold', color: '#2b6cb0', marginBottom: '4px', fontSize: '14px' }}>1. Surat Tugas & SPD</div>
-            <p style={{ margin: 0, fontSize: '12px', color: '#4a5568' }}>Penerbitan ST & Lembar SPD untuk personil.</p>
-            <span style={{ display: 'inline-block', marginTop: '10px', fontSize: '11px', fontWeight: 'bold', color: '#2b6cb0' }}>✓ Selesai / Aktif</span>
+        {/* HIRARKI TIM PENUGASAN */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '6px', border: '1px solid #edf2f7' }}>
+          <div>
+            <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase' }}>Obyek Pengawasan</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#2d3748', marginTop: '2px' }}>{detail.tempat_tujuan || '-'}</div>
           </div>
-
-          {/* Tahap 2: LHP */}
-          <div style={{ padding: '16px', borderRadius: '6px', border: isLHPActive ? '2px solid #2b6cb0' : '1px solid #cbd5e0', backgroundColor: isLHPActive ? '#ebf8ff' : '#f7fafc' }}>
-            <div style={{ fontWeight: 'bold', color: isLHPActive ? '#2b6cb0' : '#718096', marginBottom: '4px', fontSize: '14px' }}>2. Laporan Hasil Pemeriksaan (LHP)</div>
-            <p style={{ margin: 0, fontSize: '12px', color: '#4a5568' }}>Penyusunan dan pengesahan LHP dari hasil audit.</p>
-            {isLHPActive ? (
-              <span style={{ display: 'inline-block', marginTop: '10px', fontSize: '11px', fontWeight: 'bold', color: '#2b6cb0' }}>✓ Selesai / Aktif</span>
-            ) : (
-              <button 
-                onClick={() => handleUpdateStatus('Proses LHP')} 
-                disabled={updatingStatus}
-                style={{ marginTop: '10px', padding: '4px 8px', fontSize: '11px', backgroundColor: '#dd6b20', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                Lanjut ke LHP →
-              </button>
-            )}
+          <div>
+            <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase' }}>Irban Wilayah</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#2d3748', marginTop: '2px' }}>{detail.irban_wilayah || 'Inspektur Pembantu Wilayah I'}</div>
           </div>
-
-          {/* Tahap 3: TLHP */}
-          <div style={{ padding: '16px', borderRadius: '6px', border: isTLHPActive ? '2px solid #38a169' : '1px solid #cbd5e0', backgroundColor: isTLHPActive ? '#f0fff4' : '#f7fafc' }}>
-            <div style={{ fontWeight: 'bold', color: isTLHPActive ? '#38a169' : '#718096', marginBottom: '4px', fontSize: '14px' }}>3. Tindak Lanjut (TLHP)</div>
-            <p style={{ margin: 0, fontSize: '12px', color: '#4a5568' }}>Pemantauan dan penyelesaian tindak lanjut.</p>
-            {isTLHPActive ? (
-              <span style={{ display: 'inline-block', marginTop: '10px', fontSize: '11px', fontWeight: 'bold', color: '#38a169' }}>✓ Penugasan Selesai</span>
-            ) : (
-              <button 
-                onClick={() => handleUpdateStatus('Selesai TLHP')} 
-                disabled={!isLHPActive || updatingStatus}
-                style={{ marginTop: '10px', padding: '4px 8px', fontSize: '11px', backgroundColor: isLHPActive ? '#38a169' : '#cbd5e0', color: '#fff', border: 'none', borderRadius: '4px', cursor: isLHPActive ? 'pointer' : 'not-allowed', fontWeight: 'bold' }}
-              >
-                Selesaikan (TLHP) ✓
-              </button>
-            )}
+          <div>
+            <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase' }}>Pengendali Teknis</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#2d3748', marginTop: '2px' }}>{detail.pengendali_teknis || 'Auditor Ahli Madya'}</div>
           </div>
-
+          <div>
+            <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase' }}>Ketua Tim</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#2d3748', marginTop: '2px' }}>{ketuaTim}</div>
+          </div>
         </div>
       </div>
 
-      {/* INFORMASI KEGIATAN & UNDUH NASKAH DINAS */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+      {/* 3 KOLOM TAHAPAN PENUGASAN */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
         
-        {/* Rincian Penugasan */}
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', borderBottom: '1px solid #edf2f7', paddingBottom: '8px' }}>Rincian Penugasan</h3>
-          
-          <table style={{ width: '100%', fontSize: '13px', lineHeight: '1.8' }}>
-            <tbody>
-              <tr>
-                <td style={{ width: '130px', color: '#718096', fontWeight: 'bold' }}>Nomor Surat</td>
-                <td>: {detail.nomor_surat}</td>
-              </tr>
-              <tr>
-                <td style={{ color: '#718096', fontWeight: 'bold' }}>Tgl. Surat Tugas</td>
-                <td>: {detail.tanggal_surat || '-'}</td>
-              </tr>
-              <tr>
-                <td style={{ color: '#718096', fontWeight: 'bold' }}>Tgl. Cetak SPD</td>
-                <td>: {detail.tanggal_spd || '-'}</td>
-              </tr>
-              <tr>
-                <td style={{ color: '#718096', fontWeight: 'bold' }}>Objek Pengawasan</td>
-                <td>: {detail.tempat_tujuan}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div style={{ marginTop: '16px' }}>
-            <button 
-              onClick={handleDownloadSuratTugas}
-              style={{ width: '100%', backgroundColor: '#2b6cb0', color: 'white', padding: '10px', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}
-            >
-              📥 Unduh Word Surat Tugas (.docx)
-            </button>
+        {/* KOLOM 1: PERENCANAAN DAN PERSIAPAN */}
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ borderBottom: '2px solid #2b6cb0', paddingBottom: '10px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ backgroundColor: '#2b6cb0', color: '#fff', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>1</span>
+            <h3 style={{ margin: 0, fontSize: '15px', color: '#1a202c' }}>Perencanaan & Persiapan</h3>
           </div>
-        </div>
 
-        {/* Daftar Personil & Unduh SPD */}
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', borderBottom: '1px solid #edf2f7', paddingBottom: '8px' }}>Personil & Unduh SPD</h3>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {(detail.personil || []).map((p, idx) => (
-              <div key={idx} style={{ padding: '10px', backgroundColor: '#f7fafc', borderRadius: '6px', border: '1px solid #edf2f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#2d3748' }}>{p.nama}</div>
-                  <div style={{ fontSize: '11px', color: '#718096' }}>NIP. {p.nip || '-'}</div>
-                </div>
-                <button
-                  onClick={() => handleDownloadSPDWord(p)}
-                  style={{ backgroundColor: '#4a5568', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
-                >
-                  📄 SPD Word
+          {/* ITEM 1.1: SURAT TUGAS */}
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', marginBottom: '12px', backgroundColor: '#fdfdfd' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontWeight: 'bold', fontSize: '13px' }}>📄 Surat Tugas</span>
+              <span style={{ 
+                fontSize: '10px', 
+                fontWeight: 'bold', 
+                padding: '2px 6px', 
+                borderRadius: '4px',
+                backgroundColor: detail.status_st === 'Disahkan (Sudah TTD)' ? '#c6f6d5' : '#e2e8f0',
+                color: detail.status_st === 'Disahkan (Sudah TTD)' ? '#22543d' : '#4a5568'
+              }}>
+                {detail.status_st || 'Hasil Generate'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <button onClick={handleDownloadSuratTugas} style={{ backgroundColor: '#0066cc', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}>
+                📥 Unduh Word Surat Tugas
+              </button>
+
+              {detail.link_st_ttd ? (
+                <a href={detail.link_st_ttd} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', backgroundColor: '#38a169', color: '#fff', padding: '6px 10px', borderRadius: '4px', fontSize: '12px', textDecoration: 'none', fontWeight: 'bold' }}>
+                  🔗 Lihat ST TTD (GDrive)
+                </a>
+              ) : (
+                <button onClick={handleUploadSTSigned} disabled={uploading} style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  📤 Upload/Link ST TTD
                 </button>
-              </div>
-            ))}
+              )}
+            </div>
+          </div>
+
+          {/* ITEM 1.2: SPD PERSONIL */}
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', backgroundColor: '#fdfdfd' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '8px' }}>📑 SPD / SPPD Personil</div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {listPersonil.map((p, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', backgroundColor: '#f7fafc', borderRadius: '4px', fontSize: '12px' }}>
+                  <div>
+                    <strong style={{ display: 'block' }}>{p.nama}</strong>
+                    <span style={{ color: '#718096', fontSize: '10px' }}>{p.jabatan}</span>
+                  </div>
+                  <button onClick={() => handleDownloadSPDWord(p)} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '3px', fontSize: '11px', cursor: 'pointer' }}>
+                    Word
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* KOLOM 2: PELAKSANAAN */}
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ borderBottom: '2px solid #dd6b20', paddingBottom: '10px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ backgroundColor: '#dd6b20', color: '#fff', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>2</span>
+            <h3 style={{ margin: 0, fontSize: '15px', color: '#1a202c' }}>Pelaksanaan</h3>
+          </div>
+
+          <div style={{ padding: '20px 10px', textAlign: 'center', border: '1px dashed #cbd5e0', borderRadius: '6px', backgroundColor: '#f7fafc' }}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#4a5568', marginBottom: '4px' }}>Tahap Pelaksanaan Pemeriksaan</div>
+            <p style={{ fontSize: '11px', color: '#a0aec0', margin: 0 }}>
+              Kertas Kerja Pemeriksaan (KKP), Berita Acara, & Dokumen Lapangan.
+            </p>
+            <span style={{ display: 'inline-block', marginTop: '12px', fontSize: '11px', color: '#dd6b20', fontWeight: 'bold', backgroundColor: '#feebc8', padding: '4px 8px', borderRadius: '4px' }}>
+              🔒 Siap Dibuat Pada Diskusi Berikutnya
+            </span>
+          </div>
+        </div>
+
+        {/* KOLOM 3: PELAPORAN & TLHP */}
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ borderBottom: '2px solid #38a169', paddingBottom: '10px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ backgroundColor: '#38a169', color: '#fff', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>3</span>
+            <h3 style={{ margin: 0, fontSize: '15px', color: '#1a202c' }}>Pelaporan & TLHP</h3>
+          </div>
+
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', marginBottom: '12px', backgroundColor: '#fdfdfd' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>📋 Laporan Hasil Pemeriksaan (LHP)</div>
+            <p style={{ fontSize: '11px', color: '#718096', margin: '0 0 8px 0' }}>Draft LHP & Pengesahan Inspektur</p>
+            <span style={{ fontSize: '10px', fontWeight: 'bold', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', color: '#4a5568' }}>
+              Belum Diunggah
+            </span>
+          </div>
+
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', backgroundColor: '#fdfdfd' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>✅ Tindak Lanjut (TLHP)</div>
+            <p style={{ fontSize: '11px', color: '#718096', margin: '0 0 8px 0' }}>Status Rekomendasi & Matriks Pemantauan</p>
+            <span style={{ fontSize: '10px', fontWeight: 'bold', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', color: '#4a5568' }}>
+              Menunggu LHP
+            </span>
           </div>
         </div>
 
