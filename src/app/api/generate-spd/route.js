@@ -15,7 +15,6 @@ export async function POST(request) {
   try {
     const body = await request.json();
     
-    // Ambil list pegawai yang dikirim
     const listPegawaiInput = Array.isArray(body.pegawai_spd) 
       ? body.pegawai_spd 
       : (body.nama ? [body] : []);
@@ -34,13 +33,14 @@ export async function POST(request) {
     }
 
     const zip = new PizZip(content);
+    
+    // Gunakan parser aman agar file docx tidak corrupt
     const doc = new Docxtemplater(zip, { 
       paragraphLoop: true, 
       linebreaks: true,
-      nullGetter: () => '-' 
+      nullGetter: () => '' 
     });
 
-    // Format array pegawai_spd untuk loop template docx
     const formattedPegawaiSPD = listPegawaiInput.map((p) => ({
       nomor_spd: p.nomor_spd || body.nomor_surat || '-',
       nama: p.nama || '-',
@@ -58,13 +58,24 @@ export async function POST(request) {
 
     const singlePegawai = formattedPegawaiSPD[0];
 
-    // Render data tunggal & array sekaligus agar aman untuk berbagai versi template Word
-    doc.render({
-      ...singlePegawai,
-      pegawai_spd: formattedPegawaiSPD
-    });
+    try {
+      doc.render({
+        ...singlePegawai,
+        pegawai_spd: formattedPegawaiSPD
+      });
+    } catch (renderError) {
+      console.error('Error rendering docx XML:', renderError);
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Format tag di template_spd.docx tidak valid.', 
+        detail: renderError.toString() 
+      }, { status: 500 });
+    }
 
-    const buf = doc.getZip().generate({ type: 'nodebuffer' });
+    const buf = doc.getZip().generate({ 
+      type: 'nodebuffer',
+      compression: 'DEFLATE'
+    });
     
     const namaFile = listPegawaiInput.length > 1 
       ? `SPD_Gabungan_${listPegawaiInput.length}_Personil.docx` 
