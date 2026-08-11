@@ -15,12 +15,13 @@ export async function POST(request) {
   try {
     const body = await request.json();
     
+    // Tangkap daftar pegawai dari payload frontend
     const listPegawaiInput = Array.isArray(body.pegawai_spd) 
       ? body.pegawai_spd 
       : (body.nama ? [body] : []);
 
     if (listPegawaiInput.length === 0) {
-      return NextResponse.json({ success: false, message: 'Tidak ada data personil untuk SPD.' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Tidak ada data personil.' }, { status: 400 });
     }
 
     const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_spd.docx');
@@ -29,18 +30,17 @@ export async function POST(request) {
     try {
       content = await fs.readFile(templatePath);
     } catch (err) {
-      return NextResponse.json({ success: false, message: 'File template_spd.docx tidak ditemukan.' }, { status: 404 });
+      return NextResponse.json({ success: false, message: 'File template_spd.docx tidak ditemukan di public/templates/' }, { status: 404 });
     }
 
     const zip = new PizZip(content);
-    
-    // Inisialisasi Docxtemplater dengan opsi penanganan XML aman
     const doc = new Docxtemplater(zip, { 
       paragraphLoop: true, 
       linebreaks: true,
-      nullGetter: () => '-'
+      nullGetter: () => '-' 
     });
 
+    // Petakan array data untuk di-loop oleh {#pegawai_spd} di Word
     const formattedPegawaiSPD = listPegawaiInput.map((p) => ({
       nomor_spd: p.nomor_spd || body.nomor_surat || '-',
       nama: p.nama || '-',
@@ -64,18 +64,15 @@ export async function POST(request) {
         pegawai_spd: formattedPegawaiSPD
       });
     } catch (renderErr) {
-      console.error('Detail Error Render Docx:', renderErr);
+      console.error('Docxtemplater Render Error:', renderErr);
       return NextResponse.json({ 
         success: false, 
-        message: 'Gagal merender template Word. Periksa tag {#pegawai_spd} di file Word.', 
-        error: renderErr.toString() 
+        message: 'Gagal merender template Word. Periksa tag {#pegawai_spd} di file Word.',
+        errorDetail: renderErr.message || renderErr.toString() 
       }, { status: 500 });
     }
 
-    const buf = doc.getZip().generate({ 
-      type: 'nodebuffer',
-      compression: 'DEFLATE'
-    });
+    const buf = doc.getZip().generate({ type: 'nodebuffer' });
     
     const namaFile = listPegawaiInput.length > 1 
       ? `SPD_Gabungan_${listPegawaiInput.length}_Personil.docx` 
@@ -90,7 +87,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error SPD Word Server:', error);
-    return NextResponse.json({ success: false, message: 'Terjadi kesalahan pada server API SPD.', detail: error.toString() }, { status: 500 });
+    console.error('Server Error SPD:', error);
+    return NextResponse.json({ success: false, message: 'Server Error API SPD', detail: error.toString() }, { status: 500 });
   }
 }
