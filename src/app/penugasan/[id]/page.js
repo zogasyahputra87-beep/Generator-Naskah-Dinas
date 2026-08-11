@@ -6,6 +6,15 @@ import Link from 'next/link';
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
+const OPSI_PERAN = [
+  'Penanggung Jawab',
+  'Wakil Penanggung Jawab',
+  'Pengendali Teknis',
+  'Ketua Tim',
+  'Anggota Tim',
+  'Pegawai'
+];
+
 function safeString(val, fallback = '-') {
   if (val === null || val === undefined) return fallback;
   if (typeof val === 'object') {
@@ -30,20 +39,16 @@ export default function DetailProgresPenugasanPage() {
   const [activeStep, setActiveStep] = useState(1);
 
   // Preview States
-  const [showSTPreview, setShowSTPreview] = useState(true);
   const [activeSPDPreviewIndex, setActiveSPDPreviewIndex] = useState(null);
-  const [showVisumPreview, setShowVisumPreview] = useState(false); // <--- KITA TAMBAHKAN DUA STATE INI
-  const [spdPageType, setSpdPageType] = useState('depan'); // 'depan' atau 'belakang'
+  const [spdPageType, setSpdPageType] = useState('depan');
 
-  // Modal Edit State
+  // Modal Edit State & Mode Hybrid
   const [isEditing, setIsEditing] = useState(false);
+  const [jenisTimMode, setJenisTimMode] = useState('pengawasan'); // 'pengawasan' atau 'perjadin'
   const [editForm, setEditForm] = useState({
     nomor_surat: '',
     maksud_penugasan: '',
     tempat_tujuan: '',
-    irban_wilayah: '',
-    pengendali_teknis: '',
-    ketua_tim: '',
     tanggal_surat: '',
     tanggal_spd: '',
     dasar_hukum: [],
@@ -80,24 +85,52 @@ export default function DetailProgresPenugasanPage() {
   }, [penugasanId]);
 
   const initEditForm = (item) => {
-    const personilArr = Array.isArray(item.personil) ? JSON.parse(JSON.stringify(item.personil)) : [];
-    let ketuaNama = safeString(item.ketua_tim, '');
-    if (!ketuaNama && personilArr.length > 0) {
-      ketuaNama = typeof personilArr[0] === 'object' ? (personilArr[0].nama || '') : String(personilArr[0]);
-    }
+    const rawPersonil = Array.isArray(item.personil) ? JSON.parse(JSON.stringify(item.personil)) : [];
+    
+    // Normalisasi struktur personil agar memiliki field peran
+    const personilFormatted = rawPersonil.map((p, idx) => {
+      if (typeof p === 'string') {
+        return { nama: p, nip: '', pangkat_gol: '', jabatan: '', peran: idx === 0 ? 'Ketua Tim' : 'Anggota Tim' };
+      }
+      return {
+        nama: p.nama || '',
+        nip: p.nip || '',
+        pangkat_gol: p.pangkat_gol || '',
+        jabatan: p.jabatan || '',
+        peran: p.peran || (idx === 0 ? 'Ketua Tim' : 'Anggota Tim')
+      };
+    });
+
+    // Deteksi otomatis mode awal
+    const isPerjadin = item.jenis_penugasan === 'perjadin' || personilFormatted.every(p => p.peran === 'Pegawai' || !p.peran);
+    setJenisTimMode(isPerjadin ? 'perjadin' : 'pengawasan');
 
     setEditForm({
       nomor_surat: item.nomor_surat || '',
       maksud_penugasan: item.maksud_penugasan || '',
       tempat_tujuan: item.tempat_tujuan || '',
-      irban_wilayah: item.irban_wilayah || 'Inspektur Pembantu Wilayah I',
-      pengendali_teknis: item.pengendali_teknis || 'Auditor Ahli Madya',
-      ketua_tim: ketuaNama,
       tanggal_surat: item.tanggal_surat || '',
       tanggal_spd: item.tanggal_spd || '',
       dasar_hukum: Array.isArray(item.dasar_hukum) ? [...item.dasar_hukum] : [],
-      personil: personilArr,
+      personil: personilFormatted,
     });
+  };
+
+  // Switcher Mode Tim saat edit (Mengisi templat urutan default jika memilih Pengawasan)
+  const handleSwitchMode = (mode) => {
+    setJenisTimMode(mode);
+    if (mode === 'pengawasan' && editForm.personil.length === 0) {
+      setEditForm(prev => ({
+        ...prev,
+        personil: [
+          { nama: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.', nip: '198008012010011018', pangkat_gol: 'Pembina Utama Muda', jabatan: 'Inspektur Daerah', peran: 'Penanggung Jawab' },
+          { nama: '', nip: '', pangkat_gol: '', jabatan: 'Irban Wilayah I', peran: 'Wakil Penanggung Jawab' },
+          { nama: '', nip: '', pangkat_gol: '', jabatan: 'Auditor Ahli Madya', peran: 'Pengendali Teknis' },
+          { nama: '', nip: '', pangkat_gol: '', jabatan: 'Auditor Ahli Muda', peran: 'Ketua Tim' },
+          { nama: '', nip: '', pangkat_gol: '', jabatan: 'Auditor Ahli Pertama', peran: 'Anggota Tim' }
+        ]
+      }));
+    }
   };
 
   // DOWNLOAD SURAT TUGAS WORD
@@ -130,11 +163,10 @@ export default function DetailProgresPenugasanPage() {
         a.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        const errJson = await response.json().catch(() => ({}));
-        alert(`Gagal mengunduh Surat Tugas: ${errJson.message || 'Error Server'}`);
+        alert('Gagal mengunduh Surat Tugas.');
       }
     } catch (err) {
-      alert('Gagal menghubungi server API Surat Tugas.');
+      alert('Terjadi kesalahan koneksi.');
     }
   };
 
@@ -172,11 +204,9 @@ export default function DetailProgresPenugasanPage() {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
-      } else {
-        alert('Gagal mengunduh SPD Depan.');
       }
     } catch (err) {
-      alert('Terjadi kesalahan jaringan saat mengunduh SPD Depan.');
+      alert('Gagal mengunduh SPD.');
     }
   };
 
@@ -210,11 +240,9 @@ export default function DetailProgresPenugasanPage() {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
-      } else {
-        alert('Gagal mengunduh Halaman Belakang (Visum).');
       }
     } catch (err) {
-      alert('Terjadi kesalahan jaringan saat mengunduh Visum.');
+      alert('Gagal mengunduh Visum.');
     }
   };
 
@@ -222,6 +250,11 @@ export default function DetailProgresPenugasanPage() {
   const handleSaveEditPenugasan = async (e) => {
     e.preventDefault();
     try {
+      const payloadToSave = {
+        ...editForm,
+        jenis_penugasan: jenisTimMode
+      };
+
       const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}`, {
         method: 'PATCH',
         headers: {
@@ -230,7 +263,7 @@ export default function DetailProgresPenugasanPage() {
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Prefer': 'return=representation'
         },
-        body: JSON.stringify(editForm)
+        body: JSON.stringify(payloadToSave)
       });
 
       if (response.ok) {
@@ -238,30 +271,27 @@ export default function DetailProgresPenugasanPage() {
         if (updatedData && updatedData.length > 0) {
           setDetail(updatedData[0]);
           setIsEditing(false);
-          alert('Data penugasan dan tim berhasil diperbarui!');
+          alert('Data penugasan dan hirarki tim berhasil diperbarui!');
         }
       } else {
         alert('Gagal menyimpan perubahan.');
       }
     } catch (err) {
-      alert('Terjadi kesalahan jaringan saat menyimpan.');
+      alert('Terjadi kesalahan jaringan.');
     }
   };
 
-  // FORM EDIT DYNAMIC HANDLERS
+  // FORM EDIT PERSONIL HANDLERS
   const handlePersonilChange = (index, field, value) => {
     const updated = [...editForm.personil];
-    if (typeof updated[index] === 'string') {
-      updated[index] = { nama: updated[index], nip: '', jabatan: '', pangkat_gol: '' };
-    }
     updated[index][field] = value;
     setEditForm({ ...editForm, personil: updated });
   };
 
-  const handleAddPersonil = () => {
+  const handleAddPersonil = (peranDefault = 'Anggota Tim') => {
     setEditForm({
       ...editForm,
-      personil: [...editForm.personil, { nama: '', nip: '', jabatan: 'Anggota Tim', pangkat_gol: '' }]
+      personil: [...editForm.personil, { nama: '', nip: '', pangkat_gol: '', jabatan: '', peran: peranDefault }]
     });
   };
 
@@ -285,48 +315,18 @@ export default function DetailProgresPenugasanPage() {
     setEditForm({ ...editForm, dasar_hukum: updated });
   };
 
-  // UPLOAD ST TTD
-  const handleUploadSTSigned = async () => {
-    const linkGDrive = prompt('Masukkan Link Google Drive Surat Tugas TTD:');
-    if (!linkGDrive) return;
-
-    try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          link_st_ttd: linkGDrive,
-          status_st: 'Disahkan (Sudah TTD)'
-        })
-      });
-
-      if (response.ok) {
-        alert('Tautan Google Drive berhasil disimpan!');
-        window.location.reload();
-      }
-    } catch (err) {
-      alert('Gagal menyimpan tautan ST TTD.');
-    }
-  };
-
   if (loading) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat detail penugasan...</div>;
   if (!detail) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Data penugasan tidak ditemukan.</div>;
 
   const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
   const listDasar = Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [];
+  const isPengawasanMode = detail.jenis_penugasan !== 'perjadin';
 
-  let ketuaTimNama = '-';
-  if (detail.ketua_tim) {
-    ketuaTimNama = safeString(detail.ketua_tim);
-  } else if (listPersonil.length > 0) {
-    const p1 = listPersonil[0];
-    ketuaTimNama = typeof p1 === 'object' ? (p1.nama || '-') : String(p1);
-  }
+  // Helper pencarian peran khusus
+  const pjObj = listPersonil.find(p => typeof p === 'object' && p.peran === 'Penanggung Jawab');
+  const wpjObj = listPersonil.find(p => typeof p === 'object' && p.peran === 'Wakil Penanggung Jawab');
+  const daltekObj = listPersonil.find(p => typeof p === 'object' && p.peran === 'Pengendali Teknis');
+  const ketuaObj = listPersonil.find(p => typeof p === 'object' && p.peran === 'Ketua Tim');
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', fontFamily: 'sans-serif', paddingBottom: '60px' }}>
@@ -338,15 +338,20 @@ export default function DetailProgresPenugasanPage() {
         </Link>
       </div>
 
-      {/* PROFIL PENUGASAN TERSTRUKTUR */}
+      {/* PROFIL PENUGASAN HYBRID */}
       <div style={{ backgroundColor: '#fff', border: '1px solid #cbd5e0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
         
         {/* HEADER PROFIL */}
         <div style={{ backgroundColor: '#2b6cb0', color: '#fff', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 }}>
-              Naskah Dinas & Profil Penugasan Pengawasan
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 }}>
+                Profil Penugasan Pengawasan
+              </span>
+              <span style={{ fontSize: '10px', backgroundColor: isPengawasanMode ? '#ed8936' : '#38a169', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                {isPengawasanMode ? 'Mode Tim Pengawasan' : 'Mode Perjadin Biasa'}
+              </span>
+            </div>
             <h1 style={{ margin: '4px 0 0 0', fontSize: '18px', fontWeight: 'bold' }}>
               {safeString(detail.maksud_penugasan)}
             </h1>
@@ -356,55 +361,71 @@ export default function DetailProgresPenugasanPage() {
             onClick={() => { initEditForm(detail); setIsEditing(true); }}
             style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
           >
-            ✏️ Edit Penugasan Menyeluruh
+            ✏️ Edit Penugasan
           </button>
         </div>
 
-        {/* HIERARKI PENUGASAN */}
+        {/* DETAILS TABLE */}
         <div style={{ padding: '20px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <tbody>
               <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                <td style={{ padding: '8px 0', width: '200px', fontWeight: 'bold', color: '#4a5568' }}>Nomor Penugasan / Surat</td>
+                <td style={{ padding: '8px 0', width: '220px', fontWeight: 'bold', color: '#4a5568' }}>Nomor Penugasan / Surat</td>
                 <td style={{ padding: '8px 0', width: '20px', color: '#a0aec0' }}>:</td>
                 <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#2b6cb0' }}>{safeString(detail.nomor_surat)}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Obyek Pengawasan (Tujuan)</td>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Obyek / Tempat Tujuan</td>
                 <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
                 <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#1a202c' }}>{safeString(detail.tempat_tujuan)}</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Irban Wilayah Penanggungjawab</td>
-                <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                <td style={{ padding: '8px 0', color: '#2d3748' }}>{safeString(detail.irban_wilayah, 'Inspektur Pembantu Wilayah I')}</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Pengendali Teknis (Daltek)</td>
-                <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                <td style={{ padding: '8px 0', color: '#2d3748' }}>{safeString(detail.pengendali_teknis, 'Auditor Ahli Madya')}</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Ketua Tim Penugasan</td>
-                <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#2d3748' }}>{ketuaTimNama}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #edf2f7' }}>
                 <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Tanggal Pelaksanaan / Surat</td>
                 <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
                 <td style={{ padding: '8px 0', color: '#2d3748' }}>{formatTanggalIndo(detail.tanggal_surat)}</td>
               </tr>
+
+              {/* JIKA MODE TIM PENGAWASAN, TAMPILKAN STRUKTUR RESMI */}
+              {isPengawasanMode ? (
+                <>
+                  <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>1. Penanggung Jawab</td>
+                    <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
+                    <td style={{ padding: '8px 0', color: '#2d3748' }}>{pjObj ? pjObj.nama : 'Inspektur Daerah Kabupaten Malang'}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>2. Wakil Penanggung Jawab</td>
+                    <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
+                    <td style={{ padding: '8px 0', color: '#2d3748' }}>{wpjObj ? wpjObj.nama : safeString(detail.irban_wilayah, 'Irban Wilayah')}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>3. Pengendali Teknis (Daltek)</td>
+                    <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
+                    <td style={{ padding: '8px 0', color: '#2d3748' }}>{daltekObj ? daltekObj.nama : safeString(detail.pengendali_teknis, 'Auditor Ahli Madya')}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>4. Ketua Tim</td>
+                    <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
+                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#2d3748' }}>{ketuaObj ? ketuaObj.nama : safeString(detail.ketua_tim)}</td>
+                  </tr>
+                </>
+              ) : null}
+
+              {/* DAFTAR PEGAWAI / ANGGOTA TIM */}
               <tr>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568', verticalAlign: 'top' }}>Anggota Tim ({listPersonil.length} Orang)</td>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568', verticalAlign: 'top' }}>
+                  {isPengawasanMode ? '5. Anggota Tim' : 'Daftar Pegawai Ditugaskan'} ({listPersonil.length} Orang)
+                </td>
                 <td style={{ padding: '8px 0', color: '#a0aec0', verticalAlign: 'top' }}>:</td>
                 <td style={{ padding: '8px 0', color: '#2d3748' }}>
                   <ol style={{ margin: 0, paddingLeft: '18px' }}>
                     {listPersonil.map((p, pIdx) => {
                       const pNama = typeof p === 'object' ? (p.nama || '-') : String(p);
                       const pJabatan = typeof p === 'object' ? (p.jabatan || '') : '';
+                      const pPeran = typeof p === 'object' ? (p.peran || '') : '';
                       return (
-                        <li key={pIdx} style={{ marginBottom: '2px' }}>
-                          <strong>{pNama}</strong> {pJabatan ? <span style={{ color: '#718096', fontSize: '12px' }}>({pJabatan})</span> : null}
+                        <li key={pIdx} style={{ marginBottom: '4px' }}>
+                          <strong>{pNama}</strong> {pPeran ? <span style={{ color: '#2b6cb0', fontSize: '11px', fontWeight: 'bold' }}>[{pPeran}]</span> : null} {pJabatan ? <span style={{ color: '#718096', fontSize: '12px' }}>- {pJabatan}</span> : null}
                         </li>
                       );
                     })}
@@ -416,49 +437,32 @@ export default function DetailProgresPenugasanPage() {
         </div>
       </div>
 
-      {/* TAB NAVIGASI TAHAPAN PENUGASAN */}
+      {/* TAB TAHAPAN */}
       <div style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '24px' }}>
         <button 
           onClick={() => setActiveStep(1)}
           style={{
-            padding: '12px 24px',
-            border: 'none',
-            background: 'none',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
+            padding: '12px 24px', border: 'none', background: 'none', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer',
             borderBottom: activeStep === 1 ? '3px solid #2b6cb0' : 'transparent',
             color: activeStep === 1 ? '#2b6cb0' : '#718096'
           }}
         >
           1. Perencanaan & Naskah Dinas (ST/SPD)
         </button>
-
         <button 
           onClick={() => setActiveStep(2)}
           style={{
-            padding: '12px 24px',
-            border: 'none',
-            background: 'none',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
+            padding: '12px 24px', border: 'none', background: 'none', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer',
             borderBottom: activeStep === 2 ? '3px solid #dd6b20' : 'transparent',
             color: activeStep === 2 ? '#dd6b20' : '#718096'
           }}
         >
           2. Pelaksanaan Lapangan
         </button>
-
         <button 
           onClick={() => setActiveStep(3)}
           style={{
-            padding: '12px 24px',
-            border: 'none',
-            background: 'none',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
+            padding: '12px 24px', border: 'none', background: 'none', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer',
             borderBottom: activeStep === 3 ? '3px solid #38a169' : 'transparent',
             color: activeStep === 3 ? '#38a169' : '#718096'
           }}
@@ -476,40 +480,31 @@ export default function DetailProgresPenugasanPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #edf2f7', paddingBottom: '12px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📄 Pratinjau Naskah Surat Tugas</h3>
-                <span style={{ fontSize: '12px', color: '#718096' }}>Tampilan fisik naskah dinas Surat Tugas sebelum diunduh atau disahkan</span>
+                <span style={{ fontSize: '12px', color: '#718096' }}>Tampilan fisik naskah dinas Surat Tugas berdasarkan susunan tim</span>
               </div>
 
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  onClick={handleDownloadSuratTugas}
-                  style={{ backgroundColor: '#0066cc', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                  📥 Unduh File Word (.docx)
-                </button>
-
-                {detail.link_st_ttd ? (
-                  <a href={detail.link_st_ttd} target="_blank" rel="noreferrer" style={{ backgroundColor: '#38a169', color: '#fff', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', textDecoration: 'none' }}>
-                    🔗 Lihat ST TTD di GDrive
-                  </a>
-                ) : (
-                  <button onClick={handleUploadSTSigned} style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                    📤 Tambahkan ST TTD (GDrive)
-                  </button>
-                )}
-              </div>
+              <button 
+                onClick={handleDownloadSuratTugas}
+                style={{ backgroundColor: '#0066cc', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                📥 Unduh File Word (.docx)
+              </button>
             </div>
 
-            {/* KOMPONEN PRATINJAU KERTAS SURAT TUGAS */}
+            {/* KERTAS PRATINJAU SURAT TUGAS DENGAN LOGO */}
             <div style={{ backgroundColor: '#f7fafc', padding: '24px', borderRadius: '6px', border: '1px solid #cbd5e0', overflowX: 'auto' }}>
               <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '40px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#000', lineHeight: 1.5 }}>
                 
-                {/* KOP SURAT */}
-                <div style={{ textAlign: 'center', borderBottom: '3px double #000', paddingBottom: '8px', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 'bold' }}>PEMERINTAH KABUPATEN MALANG</div>
-                  <div style={{ fontSize: '16px', fontWeight: 'bold' }}>INSPEKTORAT DAERAH</div>
-                  <div style={{ fontSize: '10px', marginTop: '4px' }}>
-                    Jalan Raya Mondoroko 17B Singosari, Kabupaten Malang, Jawa Timur<br />
-                    Telepon/Faksimile ( 0341 ) 451905 Laman: inspektorat.malangkab.go.id | Pos-el: inspektorat@malangkab.go.id Kode Pos: 65153
+                {/* KOP SURAT BERLOGO */}
+                <div style={{ display: 'flex', alignItems: 'center', borderBottom: '3px double #000', paddingBottom: '8px', marginBottom: '16px' }}>
+                  <img src="/logo-kab-malang.png" alt="Logo Kabupaten Malang" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '70px', height: 'auto', marginRight: '16px' }} />
+                  <div style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>PEMERINTAH KABUPATEN MALANG</div>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold' }}>INSPEKTORAT DAERAH</div>
+                    <div style={{ fontSize: '10px', marginTop: '2px' }}>
+                      Jalan Raya Mondoroko 17B Singosari, Kabupaten Malang, Jawa Timur<br />
+                      Telepon/Faksimile ( 0341 ) 451905 Laman: inspektorat.malangkab.go.id | Pos-el: inspektorat@malangkab.go.id Kode Pos: 65153
+                    </div>
                   </div>
                 </div>
 
@@ -542,7 +537,7 @@ export default function DetailProgresPenugasanPage() {
 
                 <div style={{ textAlign: 'center', fontWeight: 'bold', margin: '16px 0' }}>MEMERINTAHKAN:</div>
 
-                {/* KEPADA / PEGAWAI */}
+                {/* KEPADA / PEGAWAI BERDASARKAN PERAN */}
                 <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse' }}>
                   <tbody>
                     <tr>
@@ -554,9 +549,11 @@ export default function DetailProgresPenugasanPage() {
                           const pNip = typeof p === 'object' ? (p.nip || '-') : '-';
                           const pGol = typeof p === 'object' ? (p.pangkat_gol || '-') : '-';
                           const pJab = typeof p === 'object' ? (p.jabatan || '-') : '-';
+                          const pPeran = typeof p === 'object' ? (p.peran || 'Pegawai') : 'Pegawai';
+                          
                           return (
-                            <div key={pIdx} style={{ marginBottom: '10px' }}>
-                              <strong>{pIdx + 1}. Nama</strong> : {pNama}<br />
+                            <div key={pIdx} style={{ marginBottom: '12px' }}>
+                              <strong>{pIdx + 1}. Nama</strong> : {pNama} {isPengawasanMode ? <strong>({pPeran})</strong> : null}<br />
                               &nbsp;&nbsp;&nbsp;&nbsp;<strong>NIP</strong> : {pNip}<br />
                               &nbsp;&nbsp;&nbsp;&nbsp;<strong>Pangkat/Gol</strong> : {pGol}<br />
                               &nbsp;&nbsp;&nbsp;&nbsp;<strong>Jabatan</strong> : {pJab}
@@ -597,26 +594,21 @@ export default function DetailProgresPenugasanPage() {
             </div>
           </div>
 
-          {/* PRATINJAU DOKUMEN SPD (DEPAN & BELAKANG/VISUM) */}
+          {/* PRATINJAU DOKUMEN SPD */}
           <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ borderBottom: '1px solid #edf2f7', paddingBottom: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📑 Pratinjau Dokumen SPD (Halaman Depan & Belakang/Visum)</h3>
-                <span style={{ fontSize: '12px', color: '#718096' }}>Pilih personil dan sakelar halaman depan/belakang untuk melihat fisik lembar SPD</span>
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📑 Pratinjau Dokumen SPD</h3>
+                <span style={{ fontSize: '12px', color: '#718096' }}>Pilih personil untuk pratinjau lembar SPD fisik</span>
               </div>
 
-              {/* TOMBOL UNDUH SPESIFIK VISUM */}
-              <button 
-                onClick={handleDownloadSPDBelakang}
-                style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-              >
+              <button onClick={handleDownloadSPDBelakang} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                 📥 Unduh Word Lembar Visum (Belakang)
               </button>
             </div>
 
-            {/* SAKELAR DEPAN / BELAKANG & LIST PERSONIL */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {listPersonil.map((p, idx) => {
                   const namaStr = typeof p === 'object' ? (p.nama || `Pegawai ${idx+1}`) : String(p);
                   return (
@@ -624,14 +616,10 @@ export default function DetailProgresPenugasanPage() {
                       key={idx}
                       onClick={() => setActiveSPDPreviewIndex(activeSPDPreviewIndex === idx ? null : idx)}
                       style={{
-                        padding: '8px 14px',
-                        borderRadius: '4px',
-                        border: '1px solid #cbd5e0',
+                        padding: '8px 14px', borderRadius: '4px', border: '1px solid #cbd5e0',
                         backgroundColor: activeSPDPreviewIndex === idx ? '#2b6cb0' : '#f7fafc',
                         color: activeSPDPreviewIndex === idx ? '#fff' : '#2d3748',
-                        fontWeight: 'bold',
-                        fontSize: '12px',
-                        cursor: 'pointer'
+                        fontWeight: 'bold', fontSize: '12px', cursor: 'pointer'
                       }}
                     >
                       👤 SPD {namaStr}
@@ -640,42 +628,19 @@ export default function DetailProgresPenugasanPage() {
                 })}
               </div>
 
-              {/* SAKELAR DEPAN OR BELAKANG */}
               {activeSPDPreviewIndex !== null && (
                 <div style={{ display: 'flex', border: '1px solid #cbd5e0', borderRadius: '4px', overflow: 'hidden' }}>
-                  <button
-                    onClick={() => setSpdPageType('depan')}
-                    style={{
-                      padding: '6px 12px',
-                      border: 'none',
-                      backgroundColor: spdPageType === 'depan' ? '#4a5568' : '#fff',
-                      color: spdPageType === 'depan' ? '#fff' : '#4a5568',
-                      fontWeight: 'bold',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
+                  <button onClick={() => setSpdPageType('depan')} style={{ padding: '6px 12px', border: 'none', backgroundColor: spdPageType === 'depan' ? '#4a5568' : '#fff', color: spdPageType === 'depan' ? '#fff' : '#4a5568', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>
                     📄 Halaman Depan
                   </button>
-                  <button
-                    onClick={() => setSpdPageType('belakang')}
-                    style={{
-                      padding: '6px 12px',
-                      border: 'none',
-                      backgroundColor: spdPageType === 'belakang' ? '#4a5568' : '#fff',
-                      color: spdPageType === 'belakang' ? '#fff' : '#4a5568',
-                      fontWeight: 'bold',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
+                  <button onClick={() => setSpdPageType('belakang')} style={{ padding: '6px 12px', border: 'none', backgroundColor: spdPageType === 'belakang' ? '#4a5568' : '#fff', color: spdPageType === 'belakang' ? '#fff' : '#4a5568', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>
                     📑 Halaman Belakang (Visum)
                   </button>
                 </div>
               )}
             </div>
 
-            {/* KONTEN PREVIEW SPD */}
+            {/* PREVIEW SPD CONTENT */}
             {activeSPDPreviewIndex !== null && listPersonil[activeSPDPreviewIndex] && (
               <div style={{ backgroundColor: '#f7fafc', padding: '20px', borderRadius: '6px', border: '1px solid #cbd5e0' }}>
                 {(() => {
@@ -685,115 +650,58 @@ export default function DetailProgresPenugasanPage() {
                   const pGol = typeof p === 'object' ? (p.pangkat_gol || '-') : '-';
                   const pJab = typeof p === 'object' ? (p.jabatan || '-') : '-';
 
-                  if (spdPageType === 'depan') {
-                    // PREVIEW HALAMAN DEPAN
-                    return (
-                      <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', border: '1px solid #e2e8f0', fontFamily: 'Arial, sans-serif', fontSize: '12px' }}>
-                        <div style={{ textAlign: 'right', fontSize: '10px', marginBottom: '10px' }}>
-                          Lembar ke : .........<br />Nomor : {safeString(detail.nomor_surat)}
-                        </div>
-
-                        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', textDecoration: 'underline', marginBottom: '16px' }}>
-                          SURAT PERJALANAN DINAS (S.P.D)
-                        </div>
-
-                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="6">
-                          <tbody>
-                            <tr>
-                              <td style={{ width: '30px', textAlign: 'center' }}>1.</td>
-                              <td style={{ width: '220px' }}>Pengguna Anggaran</td>
-                              <td>ARRIE HENDRAWAN MAHADHIEKA, S.H.</td>
-                            </tr>
-                            <tr>
-                              <td style={{ textAlign: 'center' }}>2.</td>
-                              <td>Nama Pegawai yang diperintah</td>
-                              <td><strong>{pNama}</strong></td>
-                            </tr>
-                            <tr>
-                              <td style={{ textAlign: 'center' }}>3.</td>
-                              <td>a. Pangkat dan Golongan<br />b. Jabatan</td>
-                              <td>a. {pGol}<br />b. {pJab}</td>
-                            </tr>
-                            <tr>
-                              <td style={{ textAlign: 'center' }}>4.</td>
-                              <td>Maksud Perjalanan Dinas</td>
-                              <td>{safeString(detail.maksud_penugasan)}</td>
-                            </tr>
-                            <tr>
-                              <td style={{ textAlign: 'center' }}>5.</td>
-                              <td>Tempat Berangkat / Tujuan</td>
-                              <td>Singosari, Kab. Malang / <strong>{safeString(detail.tempat_tujuan)}</strong></td>
-                            </tr>
-                            <tr>
-                              <td style={{ textAlign: 'center' }}>6.</td>
-                              <td>Tanggal Berangkat / Kembali</td>
-                              <td>{formatTanggalIndo(detail.tanggal_surat)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-
-                        <div style={{ marginTop: '16px', textAlign: 'right' }}>
-                          <button onClick={() => handleDownloadSPDDepanSingle(p)} style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                            📥 Unduh File Word SPD Depan ({pNama})
-                          </button>
-                        </div>
+                  return (
+                    <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', border: '1px solid #e2e8f0', fontFamily: 'Arial, sans-serif', fontSize: '12px' }}>
+                      <div style={{ textAlign: 'right', fontSize: '10px', marginBottom: '10px' }}>
+                        Lembar ke : .........<br />Nomor : {safeString(detail.nomor_surat)}
                       </div>
-                    );
-                  } else {
-                    // PREVIEW HALAMAN BELAKANG (VISUM)
-                    return (
-                      <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', border: '1px solid #e2e8f0', fontFamily: 'Arial, sans-serif', fontSize: '11px' }}>
-                        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '12px', marginBottom: '16px' }}>
-                          LEMBAR VISUM / PEMERIKSAAN PERJALANAN DINAS
-                        </div>
 
-                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="8">
-                          <tbody>
-                            <tr>
-                              <td style={{ width: '50%', verticalAlign: 'top' }}>
-                                <strong>I. Berangkat dari</strong> : Singosari, Kab. Malang<br />
-                                <strong>Ke</strong> : {safeString(detail.tempat_tujuan)}<br />
-                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
-                                Pengguna Anggaran,<br /><br /><br />
-                                <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
-                                NIP. 198008012010011018
-                              </td>
-                              <td style={{ width: '50%', verticalAlign: 'top' }}>
-                                <strong>Tiba di</strong> : {safeString(detail.tempat_tujuan)}<br />
-                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
-                                Kepala / Pejabat Setempat,<br /><br /><br />
-                                ..................................................<br />
-                                NIP.
-                              </td>
-                            </tr>
-                            <tr>
-                              <td style={{ verticalAlign: 'top' }}>
-                                <strong>II. Berangkat dari</strong> : {safeString(detail.tempat_tujuan)}<br />
-                                <strong>Ke</strong> : Singosari, Kab. Malang<br />
-                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
-                                Kepala / Pejabat Setempat,<br /><br /><br />
-                                ..................................................<br />
-                                NIP.
-                              </td>
-                              <td style={{ verticalAlign: 'top' }}>
-                                <strong>Tiba di</strong> : Singosari, Kab. Malang<br />
-                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
-                                Pengguna Anggaran,<br /><br /><br />
-                                <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
-                                NIP. 198008012010011018
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-
-                        <div style={{ marginTop: '16px', textAlign: 'right' }}>
-                          <button onClick={handleDownloadSPDBelakang} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                            📥 Unduh File Word Lembar Visum (Belakang)
-                          </button>
-                        </div>
+                      <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', textDecoration: 'underline', marginBottom: '16px' }}>
+                        SURAT PERJALANAN DINAS (S.P.D)
                       </div>
-                    );
-                  }
+
+                      <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="6">
+                        <tbody>
+                          <tr>
+                            <td style={{ width: '30px', textAlign: 'center' }}>1.</td>
+                            <td style={{ width: '220px' }}>Pengguna Anggaran</td>
+                            <td>ARRIE HENDRAWAN MAHADHIEKA, S.H.</td>
+                          </tr>
+                          <tr>
+                            <td style={{ textAlign: 'center' }}>2.</td>
+                            <td>Nama Pegawai yang diperintah</td>
+                            <td><strong>{pNama}</strong></td>
+                          </tr>
+                          <tr>
+                            <td style={{ textAlign: 'center' }}>3.</td>
+                            <td>a. Pangkat dan Golongan<br />b. Jabatan</td>
+                            <td>a. {pGol}<br />b. {pJab}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ textAlign: 'center' }}>4.</td>
+                            <td>Maksud Perjalanan Dinas</td>
+                            <td>{safeString(detail.maksud_penugasan)}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ textAlign: 'center' }}>5.</td>
+                            <td>Tempat Berangkat / Tujuan</td>
+                            <td>Singosari, Kab. Malang / <strong>{safeString(detail.tempat_tujuan)}</strong></td>
+                          </tr>
+                          <tr>
+                            <td style={{ textAlign: 'center' }}>6.</td>
+                            <td>Tanggal Berangkat / Kembali</td>
+                            <td>{formatTanggalIndo(detail.tanggal_surat)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                        <button onClick={() => handleDownloadSPDDepanSingle(p)} style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                          📥 Unduh File Word SPD Depan ({pNama})
+                        </button>
+                      </div>
+                    </div>
+                  );
                 })()}
               </div>
             )}
@@ -802,39 +710,58 @@ export default function DetailProgresPenugasanPage() {
         </div>
       )}
 
-      {/* TAHAP 2: PELAKSANAAN */}
+      {/* TAHAP 2 */}
       {activeStep === 2 && (
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ marginTop: 0, color: '#dd6b20' }}>Tahap 2: Pelaksanaan Pemeriksaan Lapangan</h3>
-          <p style={{ fontSize: '13px', color: '#4a5568' }}>
-            Dokumentasi Kertas Kerja Pemeriksaan (KKP), Berita Acara, dan bukti fisik pemeriksaan lapangan.
-          </p>
-          <div style={{ padding: '40px', border: '2px dashed #cbd5e0', borderRadius: '6px', textAlign: 'center', color: '#a0aec0', fontSize: '13px' }}>
-            Modul pengunggahan Berita Acara & Dokumentasi Lapangan.
-          </div>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px' }}>
+          <h3 style={{ marginTop: 0, color: '#dd6b20' }}>Tahap 2: Pelaksanaan Lapangan</h3>
+          <p style={{ fontSize: '13px', color: '#4a5568' }}>Dokumentasi KKP dan Berita Acara Lapangan.</p>
         </div>
       )}
 
-      {/* TAHAP 3: PELAPORAN & TLHP */}
+      {/* TAHAP 3 */}
       {activeStep === 3 && (
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ marginTop: 0, color: '#38a169' }}>Tahap 3: Pelaporan (LHP) & Tindak Lanjut</h3>
-          <p style={{ fontSize: '13px', color: '#4a5568' }}>
-            Penyusunan Laporan Hasil Pemeriksaan (LHP) dan Pemantauan Tindak Lanjut Hasil Pemeriksaan (TLHP).
-          </p>
-          <div style={{ padding: '40px', border: '2px dashed #cbd5e0', borderRadius: '6px', textAlign: 'center', color: '#a0aec0', fontSize: '13px' }}>
-            Modul LHP & Pemantauan Rekomendasi TLHP.
-          </div>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px' }}>
+          <h3 style={{ marginTop: 0, color: '#38a169' }}>Tahap 3: Pelaporan (LHP) & TLHP</h3>
+          <p style={{ fontSize: '13px', color: '#4a5568' }}>Penyusunan LHP & Pemantauan TLHP.</p>
         </div>
       )}
 
-      {/* MODAL EDIT PENUGASAN MENYELURUH */}
+      {/* MODAL EDIT PENUGASAN HYBRID */}
       {isEditing && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '700px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2 style={{ marginTop: 0, borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', fontSize: '18px', color: '#1a202c' }}>
-              ✏️ Edit Penugasan Menyeluruh
-            </h2>
+          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '750px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', color: '#1a202c' }}>
+                ✏️ Edit Penugasan
+              </h2>
+
+              {/* SAKELAR MODE HYBRID */}
+              <div style={{ display: 'flex', backgroundColor: '#edf2f7', padding: '2px', borderRadius: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchMode('pengawasan')}
+                  style={{
+                    padding: '6px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
+                    backgroundColor: jenisTimMode === 'pengawasan' ? '#2b6cb0' : 'transparent',
+                    color: jenisTimMode === 'pengawasan' ? '#fff' : '#4a5568'
+                  }}
+                >
+                  🔍 Mode Tim Pengawasan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchMode('perjadin')}
+                  style={{
+                    padding: '6px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
+                    backgroundColor: jenisTimMode === 'perjadin' ? '#38a169' : 'transparent',
+                    color: jenisTimMode === 'perjadin' ? '#fff' : '#4a5568'
+                  }}
+                >
+                  🚗 Mode Perjadin Biasa
+                </button>
+              </div>
+            </div>
 
             <form onSubmit={handleSaveEditPenugasan}>
               
@@ -844,13 +771,13 @@ export default function DetailProgresPenugasanPage() {
                   <input type="text" value={editForm.nomor_surat} onChange={(e) => setEditForm({ ...editForm, nomor_surat: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Obyek Pengawasan / Tempat Tujuan:</label>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Obyek / Tempat Tujuan:</label>
                   <input type="text" value={editForm.tempat_tujuan} onChange={(e) => setEditForm({ ...editForm, tempat_tujuan: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} required />
                 </div>
               </div>
 
               <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Maksud / Tujuan Penugasan:</label>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Maksud Penugasan:</label>
                 <textarea value={editForm.maksud_penugasan} onChange={(e) => setEditForm({ ...editForm, maksud_penugasan: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', height: '60px', fontSize: '13px' }} required />
               </div>
 
@@ -865,27 +792,40 @@ export default function DetailProgresPenugasanPage() {
                 </div>
               </div>
 
-              {/* EDIT ANGGOTA TIM */}
+              {/* INPUT SUSUNAN TIM DENGAN DROPDOWN PERAN */}
               <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0' }}>👥 Anggota Tim Penugasan (Personil)</label>
-                  <button type="button" onClick={handleAddPersonil} style={{ backgroundColor: '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
-                    + Tambah Personil
+                  <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0' }}>
+                    👥 Daftar Pegawai & Peran Dalam Tim ({jenisTimMode === 'pengawasan' ? 'Hirarkis Pengawasan' : 'Perjadin Biasa'})
+                  </label>
+                  <button type="button" onClick={() => handleAddPersonil(jenisTimMode === 'pengawasan' ? 'Anggota Tim' : 'Pegawai')} style={{ backgroundColor: '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                    + Tambah Pegawai
                   </button>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {editForm.personil.map((p, pIdx) => {
-                    const pObj = typeof p === 'object' ? p : { nama: safeString(p), nip: '', jabatan: 'Anggota Tim' };
-                    return (
-                      <div key={pIdx} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr 30px', gap: '8px', alignItems: 'center', backgroundColor: '#f8fafc', padding: '8px', borderRadius: '4px', border: '1px solid #edf2f7' }}>
-                        <input type="text" placeholder="Nama Pegawai" value={pObj.nama || ''} onChange={(e) => handlePersonilChange(pIdx, 'nama', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} required />
-                        <input type="text" placeholder="NIP" value={pObj.nip || ''} onChange={(e) => handlePersonilChange(pIdx, 'nip', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} />
-                        <input type="text" placeholder="Jabatan Dalam Tim" value={pObj.jabatan || ''} onChange={(e) => handlePersonilChange(pIdx, 'jabatan', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} />
-                        <button type="button" onClick={() => handleRemovePersonil(pIdx)} style={{ backgroundColor: '#e53e3e', color: '#fff', border: 'none', borderRadius: '4px', height: '28px', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
-                      </div>
-                    );
-                  })}
+                  {editForm.personil.map((p, pIdx) => (
+                    <div key={pIdx} style={{ display: 'grid', gridTemplateColumns: jenisTimMode === 'pengawasan' ? '1.5fr 1.8fr 1.2fr 1.2fr 30px' : '2fr 1.5fr 1.5fr 30px', gap: '6px', alignItems: 'center', backgroundColor: '#f8fafc', padding: '8px', borderRadius: '4px', border: '1px solid #edf2f7' }}>
+                      
+                      {/* DROPDOWN PERAN (HANYA MUNCUL DI MODE PENGAWASAN) */}
+                      {jenisTimMode === 'pengawasan' && (
+                        <select 
+                          value={p.peran || 'Anggota Tim'} 
+                          onChange={(e) => handlePersonilChange(pIdx, 'peran', e.target.value)}
+                          style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '11px', fontWeight: 'bold', color: '#2b6cb0' }}
+                        >
+                          {OPSI_PERAN.map((role, rIdx) => (
+                            <option key={rIdx} value={role}>{role}</option>
+                          ))}
+                        </select>
+                      )}
+
+                      <input type="text" placeholder="Nama Pegawai" value={p.nama || ''} onChange={(e) => handlePersonilChange(pIdx, 'nama', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} required />
+                      <input type="text" placeholder="NIP" value={p.nip || ''} onChange={(e) => handlePersonilChange(pIdx, 'nip', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} />
+                      <input type="text" placeholder="Jabatan" value={p.jabatan || ''} onChange={(e) => handlePersonilChange(pIdx, 'jabatan', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} />
+                      <button type="button" onClick={() => handleRemovePersonil(pIdx)} style={{ backgroundColor: '#e53e3e', color: '#fff', border: 'none', borderRadius: '4px', height: '28px', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+                    </div>
+                  ))}
                 </div>
               </div>
 
