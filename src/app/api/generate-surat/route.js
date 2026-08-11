@@ -15,70 +15,64 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_surat_tugas.docx');
+    const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_surat.docx');
     
     let content;
     try {
       content = await fs.readFile(templatePath);
     } catch (err) {
-      return NextResponse.json(
-        { success: false, message: 'File template_surat_tugas.docx tidak ditemukan di public/templates/' },
-        { status: 404 }
-      );
+      return NextResponse.json({ 
+        success: false, 
+        message: 'File template_surat.docx tidak ditemukan di public/templates/' 
+      }, { status: 404 });
     }
 
     const zip = new PizZip(content);
-    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+    const doc = new Docxtemplater(zip, { 
+      paragraphLoop: true, 
+      linebreaks: true,
+      nullGetter: () => '' 
+    });
 
-    // Format list dasar hukum tanpa nilai undefined
-    const rawDasar = Array.isArray(body.dasar_list) ? body.dasar_list : (Array.isArray(body.dasar_hukum) ? body.dasar_hukum : []);
-    const formattedDasarList = rawDasar.map((d, index, arr) => {
-      let teks = typeof d === 'string' ? d : (d.isi_dasar || '');
-      teks = teks.trim();
-      const isLast = index === arr.length - 1;
-
-      if (isLast && teks.length > 0) {
-        if (teks.endsWith('.')) teks = teks.slice(0, -1);
-        teks = `${teks}, dengan ini:`;
-      } else if (teks.length > 0) {
-        if (teks.endsWith('.')) teks = teks.slice(0, -1);
-        teks = `${teks};`;
-      }
-
+    // Format array dasar hukum
+    const rawDasar = Array.isArray(body.dasar_list) ? body.dasar_list : [];
+    const formattedDasarList = rawDasar.map((d, index) => {
+      const teksDasar = typeof d === 'object' ? (d.dasar || d.teks || d.nama || String(d)) : String(d);
       return {
-        no: String(index + 1),
-        isi_dasar: teks
+        no: index + 1,
+        nomor: index + 1,
+        dasar: teksDasar,
+        isi_dasar: teksDasar,
+        teks: teksDasar,
+        label_dasar_titik2: index === 0 ? 'Dasar:' : ''
       };
     });
 
-    // Format list pegawai tanpa nilai undefined
-    const rawPegawai = Array.isArray(body.pegawai_list) ? body.pegawai_list : (Array.isArray(body.personil) ? body.personil : []);
+    // Format array pegawai
+    const rawPegawai = Array.isArray(body.pegawai_list) ? body.pegawai_list : [];
     const formattedPegawaiList = rawPegawai.map((p, index) => ({
-      no: String(index + 1),
-      nama: p.nama || '-',
-      nip: p.nip || '-',
-      pangkat_gol: p.pangkat_gol || '-',
-      jabatan: p.jabatan || '-'
+      no: index + 1,
+      nama: typeof p === 'object' ? p.nama || '-' : String(p),
+      nip: typeof p === 'object' ? p.nip || '-' : '-',
+      pangkat_gol: typeof p === 'object' ? p.pangkat_gol || '-' : '-',
+      jabatan: typeof p === 'object' ? p.jabatan || '-' : '-',
+      label_kepada_titik2: index === 0 ? 'Kepada:' : ''
     }));
 
-    // Format list paraf
-    const rawParaf = Array.isArray(body.paraf_list) ? body.paraf_list : [];
-    const formattedParafList = rawParaf.map((item) => ({
-      jabatan_paraf: item.jabatan_paraf || ''
-    }));
-
-    doc.render({
+    const payloadData = {
       nomor_surat: body.nomor_surat || '-',
+      penugasan: body.penugasan || body.maksud_penugasan || '-',
+      tempat_tujuan: body.tempat_tujuan || '-',
+      tanggal: formatTanggalIndo(body.tanggal || body.tanggal_surat),
       dasar_list: formattedDasarList,
       pegawai_list: formattedPegawaiList,
-      penugasan: body.penugasan || body.maksud_penugasan || '-',
-      tanggal: formatTanggalIndo(body.tanggal || body.tanggal_surat),
-      tampilkan_paraf: body.tampilkan_paraf !== false,
-      paraf_list: formattedParafList
-    });
+      paraf_list: Array.isArray(body.paraf_list) ? body.paraf_list : []
+    };
+
+    doc.render(payloadData);
 
     const buf = doc.getZip().generate({ type: 'nodebuffer' });
-    const namaFile = `Surat_Tugas_${(body.nomor_surat || 'Draft').replace(/[\/\s]+/g, '_')}.docx`;
+    const namaFile = `Surat_Tugas_${(body.nomor_surat || 'ST').replace(/[\/\s]+/g, '_')}.docx`;
 
     return new NextResponse(buf, {
       status: 200,
@@ -89,10 +83,11 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error Surat Tugas Word:', error);
-    return NextResponse.json(
-      { success: false, message: 'Gagal membuat Surat Tugas Word.', detail: error.toString() },
-      { status: 500 }
-    );
+    console.error('Error Surat Tugas Route:', error);
+    return NextResponse.json({ 
+      success: false, 
+      message: 'Gagal merender Surat Tugas.', 
+      detail: error.toString() 
+    }, { status: 500 });
   }
 }
