@@ -38,10 +38,10 @@ export async function POST(request) {
     const doc = new Docxtemplater(zip, { 
       paragraphLoop: true, 
       linebreaks: true,
-      nullGetter: () => '-' 
+      nullGetter: () => '' 
     });
 
-    // Extract daftar dasar menjadi teks murni (mencegah [object Object])
+    // Mencegah [object Object] pada daftar dasar hukum
     const rawDasar = Array.isArray(body.dasar_list) ? body.dasar_list : [];
     const formattedDasarList = rawDasar.map((d, index) => {
       let teksDasar = '-';
@@ -52,10 +52,7 @@ export async function POST(request) {
       }
       return {
         no: index + 1,
-        nomor: index + 1,
-        dasar: teksDasar,
-        isi_dasar: teksDasar,
-        teks: teksDasar
+        dasar: teksDasar
       };
     });
 
@@ -63,10 +60,10 @@ export async function POST(request) {
     const rawPegawai = Array.isArray(body.pegawai_list) ? body.pegawai_list : [];
     const formattedPegawaiList = rawPegawai.map((p, index) => ({
       no: index + 1,
-      nama: typeof p === 'object' ? p.nama || '-' : String(p),
-      nip: typeof p === 'object' ? p.nip || '-' : '-',
-      pangkat_gol: typeof p === 'object' ? p.pangkat_gol || '-' : '-',
-      jabatan: typeof p === 'object' ? p.jabatan || '-' : '-'
+      nama: typeof p === 'object' ? (p.nama || '-') : String(p),
+      nip: typeof p === 'object' ? (p.nip || '-') : '-',
+      pangkat_gol: typeof p === 'object' ? (p.pangkat_gol || '-') : '-',
+      jabatan: typeof p === 'object' ? (p.jabatan || '-') : '-'
     }));
 
     const payloadData = {
@@ -75,8 +72,7 @@ export async function POST(request) {
       tempat_tujuan: body.tempat_tujuan || '-',
       tanggal: formatTanggalIndo(body.tanggal || body.tanggal_surat),
       dasar_list: formattedDasarList,
-      pegawai_list: formattedPegawaiList,
-      paraf_list: Array.isArray(body.paraf_list) ? body.paraf_list : []
+      pegawai_list: formattedPegawaiList
     };
 
     doc.render(payloadData);
