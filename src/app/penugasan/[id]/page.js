@@ -15,6 +15,9 @@ function safeString(val, fallback = '-') {
   return String(val);
 }
 
+// Helper jeda waktu antar pengunduhan otomatis
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export default function DetailProgresPenugasanPage() {
   const params = useParams();
   const penugasanId = params?.id;
@@ -98,11 +101,13 @@ export default function DetailProgresPenugasanPage() {
         document.body.appendChild(a);
         a.click();
         a.remove();
+        window.URL.revokeObjectURL(url);
       } else {
-        alert('Gagal mengunduh Surat Tugas.');
+        const errJson = await response.json().catch(() => ({}));
+        alert(`Gagal mengunduh Surat Tugas: ${errJson.message || 'Error pada server backend (500)'}`);
       }
     } catch (err) {
-      alert('Terjadi kesalahan saat mengunduh Surat Tugas.');
+      alert('Terjadi kesalahan koneksi saat mengunduh Surat Tugas.');
     }
   };
 
@@ -124,12 +129,16 @@ export default function DetailProgresPenugasanPage() {
         document.body.appendChild(a);
         a.click();
         a.remove();
+        window.URL.revokeObjectURL(url);
+        return true;
       } else {
-        const errJson = await response.json();
-        alert(`Gagal membuat dokumen SPD: ${errJson.message || 'Error Server'}`);
+        const errJson = await response.json().catch(() => ({}));
+        alert(`Gagal membuat dokumen SPD: ${errJson.message || 'Error pada server backend (500)'}`);
+        return false;
       }
     } catch (err) {
       alert('Gagal menghubungi server API SPD.');
+      return false;
     }
   };
 
@@ -153,7 +162,7 @@ export default function DetailProgresPenugasanPage() {
     await fetchSPDFile(payloadSPD, `SPD_Depan_${(namaPersonil || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`);
   };
 
-  // Unduh SPD Depan Gabungan (1 File Word)
+  // Unduh SPD Depan untuk seluruh personil terpilih secara otomatis (satu per satu tanpa merusak XML Word)
   const handleDownloadSPDDepanMassal = async () => {
     if (!detail) return;
     const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
@@ -164,30 +173,16 @@ export default function DetailProgresPenugasanPage() {
       return;
     }
 
-    const payloadSPDMassal = {
-      nomor_spd: detail.nomor_surat,
-      maksud_penugasan: detail.maksud_penugasan,
-      tempat_tujuan: detail.tempat_tujuan,
-      tanggal_surat: detail.tanggal_surat,
-      tanggal_spd: detail.tanggal_spd,
-      pegawai_spd: targetPersonil.map(p => ({
-        nomor_spd: detail.nomor_surat,
-        nama: typeof p === 'object' ? (p.nama || '') : safeString(p, ''),
-        nip: typeof p === 'object' ? (p.nip || '') : '',
-        pangkat_gol: typeof p === 'object' ? (p.pangkat_gol || '') : '',
-        jabatan: typeof p === 'object' ? (p.jabatan || '') : '',
-        maksud_penugasan: detail.maksud_penugasan,
-        tempat_tujuan: detail.tempat_tujuan,
-        tgl_berangkat: detail.tanggal_surat,
-        tgl_kembali: detail.tanggal_surat,
-        tgl_spd: detail.tanggal_spd,
-      }))
-    };
-
-    await fetchSPDFile(payloadSPDMassal, `SPD_Depan_Gabungan_${targetPersonil.length}_Personil.docx`);
+    for (let i = 0; i < targetPersonil.length; i++) {
+      const p = targetPersonil[i];
+      await handleDownloadSPDDepanSingle(p);
+      if (i < targetPersonil.length - 1) {
+        await delay(500); // Jeda 0.5 detik agar browser tidak memblokir pop-up
+      }
+    }
   };
 
-  // Unduh Lembar Visum
+  // Unduh Lembar Visum (Halaman Belakang)
   const handleDownloadSPDBelakang = async () => {
     if (!detail) return;
     const payloadVisum = {
