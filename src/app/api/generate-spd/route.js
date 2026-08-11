@@ -15,21 +15,27 @@ export async function POST(request) {
   try {
     const body = await request.json();
     
-    let templateFileName = 'template_spd_depan.docx';
-    if (body.halaman_belakang_only) {
-      templateFileName = 'template_spd_belakang.docx';
-    }
+    // Tentukan file template yang digunakan
+    let templateFileName = body.halaman_belakang_only 
+      ? 'template_spd_belakang.docx' 
+      : 'template_spd_depan.docx';
 
-    const templatePath = path.join(process.cwd(), 'public', 'templates', templateFileName);
+    let templatePath = path.join(process.cwd(), 'public', 'templates', templateFileName);
     
     let content;
     try {
       content = await fs.readFile(templatePath);
     } catch (err) {
-      return NextResponse.json({ 
-        success: false, 
-        message: `File ${templateFileName} tidak ditemukan di public/templates/` 
-      }, { status: 404 });
+      // Fallback jika file spesifik belum ada, coba panggil template_spd.docx
+      try {
+        const fallbackPath = path.join(process.cwd(), 'public', 'templates', 'template_spd.docx');
+        content = await fs.readFile(fallbackPath);
+      } catch (fallbackErr) {
+        return NextResponse.json({ 
+          success: false, 
+          message: `File template (${templateFileName}) tidak ditemukan di folder public/templates/.` 
+        }, { status: 404 });
+      }
     }
 
     const zip = new PizZip(content);
@@ -39,14 +45,14 @@ export async function POST(request) {
       nullGetter: () => '-' 
     });
 
-    // Tangkap daftar pegawai (baik tunggal maupun array banyak pegawai)
+    // Tangkap daftar pegawai
     const listPegawaiInput = Array.isArray(body.pegawai_spd) 
       ? body.pegawai_spd 
       : (body.nama ? [body] : []);
 
     const formattedPegawaiSPD = listPegawaiInput.map((p) => ({
       nomor_spd: p.nomor_spd || body.nomor_spd || body.nomor_surat || '-',
-      nama: p.nama || '-',
+      nama: typeof p === 'object' ? p.nama : String(p),
       nip: p.nip || '-',
       pangkat_gol: p.pangkat_gol || '-',
       jabatan: p.jabatan || '-',
@@ -59,9 +65,18 @@ export async function POST(request) {
       nip_pa: '198008012010011018'
     }));
 
-    const singlePegawai = formattedPegawaiSPD[0] || {};
+    const singlePegawai = formattedPegawaiSPD[0] || {
+      nomor_spd: body.nomor_spd || body.nomor_surat || '-',
+      maksud_penugasan: body.maksud_penugasan || '-',
+      tempat_tujuan: body.tempat_tujuan || '-',
+      tgl_berangkat: formatTanggalIndo(body.tgl_berangkat || body.tanggal_surat),
+      tgl_kembali: formatTanggalIndo(body.tgl_kembali || body.tanggal_surat),
+      tgl_spd: formatTanggalIndo(body.tgl_spd || body.tanggal_spd || body.tanggal_surat),
+      pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
+      nip_pa: '198008012010011018'
+    };
 
-    // Render data tunggal & array sekaligus
+    // Render data tunggal & perulangan pegawai_spd sekaligus
     doc.render({
       ...singlePegawai,
       pegawai_spd: formattedPegawaiSPD
@@ -70,10 +85,10 @@ export async function POST(request) {
     const buf = doc.getZip().generate({ type: 'nodebuffer' });
     
     let namaFile = `SPD_Depan_${(singlePegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
-    if (listPegawaiInput.length > 1) {
-      namaFile = `SPD_Depan_Gabungan_${listPegawaiInput.length}_Personil.docx`;
-    } else if (body.halaman_belakang_only) {
+    if (body.halaman_belakang_only) {
       namaFile = `SPD_Halaman_Belakang_Visum.docx`;
+    } else if (listPegawaiInput.length > 1) {
+      namaFile = `SPD_Depan_Gabungan_${listPegawaiInput.length}_Personil.docx`;
     }
 
     return new NextResponse(buf, {
