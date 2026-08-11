@@ -15,7 +15,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    // Menggunakan nama file template_surat_tugas.docx dengan fallback ke template_surat.docx
+    // Cek file template_surat_tugas.docx dengan fallback ke template_surat.docx
     let templateFileName = 'template_surat_tugas.docx';
     let templatePath = path.join(process.cwd(), 'public', 'templates', templateFileName);
     
@@ -30,7 +30,7 @@ export async function POST(request) {
       } catch (fallbackErr) {
         return NextResponse.json({ 
           success: false, 
-          message: 'File template_surat_tugas.docx tidak ditemukan di folder public/templates/' 
+          message: 'File template Surat Tugas tidak ditemukan di public/templates/' 
         }, { status: 404 });
       }
     }
@@ -42,29 +42,32 @@ export async function POST(request) {
       nullGetter: () => '' 
     });
 
-    // Format array dasar hukum
+    // Extract teks string murni dari daftar dasar hukum agar tidak menjadi [object Object]
     const rawDasar = Array.isArray(body.dasar_list) ? body.dasar_list : [];
     const formattedDasarList = rawDasar.map((d, index) => {
-      const teksDasar = typeof d === 'object' ? (d.dasar || d.teks || d.nama || String(d)) : String(d);
+      let teksDasar = '-';
+      if (typeof d === 'string') {
+        teksDasar = d;
+      } else if (typeof d === 'object' && d !== null) {
+        teksDasar = d.dasar || d.teks || d.nama || d.isi_dasar || Object.values(d)[0] || '-';
+      }
       return {
         no: index + 1,
         nomor: index + 1,
         dasar: teksDasar,
         isi_dasar: teksDasar,
-        teks: teksDasar,
-        label_dasar_titik2: index === 0 ? 'Dasar:' : ''
+        teks: teksDasar
       };
     });
 
-    // Format array pegawai
+    // Format array pegawai / personil
     const rawPegawai = Array.isArray(body.pegawai_list) ? body.pegawai_list : [];
     const formattedPegawaiList = rawPegawai.map((p, index) => ({
       no: index + 1,
       nama: typeof p === 'object' ? p.nama || '-' : String(p),
       nip: typeof p === 'object' ? p.nip || '-' : '-',
       pangkat_gol: typeof p === 'object' ? p.pangkat_gol || '-' : '-',
-      jabatan: typeof p === 'object' ? p.jabatan || '-' : '-',
-      label_kepada_titik2: index === 0 ? 'Kepada:' : ''
+      jabatan: typeof p === 'object' ? p.jabatan || '-' : '-'
     }));
 
     const payloadData = {
