@@ -38,14 +38,13 @@ export async function POST(request) {
       nullGetter: () => '-' 
     });
 
-    // Tangkap daftar pegawai
     const listPegawaiInput = Array.isArray(body.pegawai_spd) && body.pegawai_spd.length > 0
       ? body.pegawai_spd 
       : [body];
 
     const formattedPegawaiSPD = listPegawaiInput.map((p) => ({
       nomor_spd: p.nomor_spd || body.nomor_spd || body.nomor_surat || '-',
-      nama: typeof p === 'object' ? p.nama || '-' : String(p),
+      nama: typeof p === 'object' ? (p.nama || '-') : String(p),
       nip: p.nip || '-',
       pangkat_gol: p.pangkat_gol || '-',
       jabatan: p.jabatan || '-',
@@ -60,7 +59,6 @@ export async function POST(request) {
 
     const singlePegawai = formattedPegawaiSPD[0] || {};
 
-    // Render data tunggal maupun array perulangan sekaligus
     doc.render({
       ...singlePegawai,
       pegawai_spd: formattedPegawaiSPD
@@ -87,7 +85,7 @@ export async function POST(request) {
     console.error('Error SPD Route:', error);
     return NextResponse.json({ 
       success: false, 
-      message: 'Gagal membuat file SPD gabungan.', 
+      message: 'Gagal membuat file SPD.', 
       detail: error.toString() 
     }, { status: 500 });
   }
