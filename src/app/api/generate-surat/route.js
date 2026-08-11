@@ -15,7 +15,6 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    // Cek file template_surat_tugas.docx dengan fallback ke template_surat.docx
     let templateFileName = 'template_surat_tugas.docx';
     let templatePath = path.join(process.cwd(), 'public', 'templates', templateFileName);
     
@@ -39,10 +38,10 @@ export async function POST(request) {
     const doc = new Docxtemplater(zip, { 
       paragraphLoop: true, 
       linebreaks: true,
-      nullGetter: () => '' 
+      nullGetter: () => '-' 
     });
 
-    // Extract teks string murni dari daftar dasar hukum agar tidak menjadi [object Object]
+    // Extract daftar dasar menjadi teks murni (mencegah [object Object])
     const rawDasar = Array.isArray(body.dasar_list) ? body.dasar_list : [];
     const formattedDasarList = rawDasar.map((d, index) => {
       let teksDasar = '-';
@@ -60,7 +59,7 @@ export async function POST(request) {
       };
     });
 
-    // Format array pegawai / personil
+    // Format array pegawai
     const rawPegawai = Array.isArray(body.pegawai_list) ? body.pegawai_list : [];
     const formattedPegawaiList = rawPegawai.map((p, index) => ({
       no: index + 1,
