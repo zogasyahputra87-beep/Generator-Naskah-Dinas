@@ -38,10 +38,10 @@ export async function POST(request) {
     const doc = new Docxtemplater(zip, { 
       paragraphLoop: true, 
       linebreaks: true,
-      nullGetter: () => '' 
+      nullGetter: () => '-' 
     });
 
-    // Mencegah [object Object] pada daftar dasar hukum
+    // Format array dasar hukum
     const rawDasar = Array.isArray(body.dasar_list) ? body.dasar_list : [];
     const formattedDasarList = rawDasar.map((d, index) => {
       let teksDasar = '-';
@@ -72,7 +72,9 @@ export async function POST(request) {
       tempat_tujuan: body.tempat_tujuan || '-',
       tanggal: formatTanggalIndo(body.tanggal || body.tanggal_surat),
       dasar_list: formattedDasarList,
-      pegawai_list: formattedPegawaiList
+      pegawai_list: formattedPegawaiList,
+      tampilkan_paraf: true,
+      paraf_list: Array.isArray(body.paraf_list) ? body.paraf_list : []
     };
 
     doc.render(payloadData);
@@ -89,7 +91,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error Surat Tugas Route:', error);
+    console.error('Error Surat Tugas API:', error);
     return NextResponse.json({ 
       success: false, 
       message: 'Gagal merender Surat Tugas.', 
