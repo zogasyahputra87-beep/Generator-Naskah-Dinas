@@ -15,16 +15,24 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_surat.docx');
+    // Menggunakan nama file template_surat_tugas.docx dengan fallback ke template_surat.docx
+    let templateFileName = 'template_surat_tugas.docx';
+    let templatePath = path.join(process.cwd(), 'public', 'templates', templateFileName);
     
     let content;
     try {
       content = await fs.readFile(templatePath);
     } catch (err) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'File template_surat.docx tidak ditemukan di public/templates/' 
-      }, { status: 404 });
+      try {
+        templateFileName = 'template_surat.docx';
+        templatePath = path.join(process.cwd(), 'public', 'templates', templateFileName);
+        content = await fs.readFile(templatePath);
+      } catch (fallbackErr) {
+        return NextResponse.json({ 
+          success: false, 
+          message: 'File template_surat_tugas.docx tidak ditemukan di folder public/templates/' 
+        }, { status: 404 });
+      }
     }
 
     const zip = new PizZip(content);
@@ -60,7 +68,7 @@ export async function POST(request) {
     }));
 
     const payloadData = {
-      nomor_surat: body.nomor_surat || '-',
+      nomor_surat: body.nomor_surat || body.nomor_penugasan || '-',
       penugasan: body.penugasan || body.maksud_penugasan || '-',
       tempat_tujuan: body.tempat_tujuan || '-',
       tanggal: formatTanggalIndo(body.tanggal || body.tanggal_surat),
@@ -72,7 +80,7 @@ export async function POST(request) {
     doc.render(payloadData);
 
     const buf = doc.getZip().generate({ type: 'nodebuffer' });
-    const namaFile = `Surat_Tugas_${(body.nomor_surat || 'ST').replace(/[\/\s]+/g, '_')}.docx`;
+    const namaFile = `Surat_Tugas_${(payloadData.nomor_surat || 'ST').replace(/[\/\s]+/g, '_')}.docx`;
 
     return new NextResponse(buf, {
       status: 200,
