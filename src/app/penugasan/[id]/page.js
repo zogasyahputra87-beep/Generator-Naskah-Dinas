@@ -27,6 +27,16 @@ export default function DetailProgresPenugasanPage() {
   const [uploading, setUploading] = useState(false);
   const [selectedPersonil, setSelectedPersonil] = useState([]);
 
+  // State Modal Edit Penugasan
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    nomor_surat: '',
+    maksud_penugasan: '',
+    tempat_tujuan: '',
+    tanggal_surat: '',
+    tanggal_spd: '',
+  });
+
   useEffect(() => {
     if (!penugasanId) return;
 
@@ -41,9 +51,19 @@ export default function DetailProgresPenugasanPage() {
         if (response.ok) {
           const data = await response.json();
           if (data && data.length > 0) {
-            setDetail(data[0]);
-            const personil = Array.isArray(data[0].personil) ? data[0].personil : [];
+            const item = data[0];
+            setDetail(item);
+            const personil = Array.isArray(item.personil) ? item.personil : [];
             setSelectedPersonil(personil.map((_, idx) => idx));
+
+            // Isi nilai awal form edit
+            setEditForm({
+              nomor_surat: item.nomor_surat || '',
+              maksud_penugasan: item.maksud_penugasan || '',
+              tempat_tujuan: item.tempat_tujuan || '',
+              tanggal_surat: item.tanggal_surat || '',
+              tanggal_spd: item.tanggal_spd || '',
+            });
           }
         }
       } catch (err) {
@@ -55,6 +75,36 @@ export default function DetailProgresPenugasanPage() {
 
     fetchDetailPenugasan();
   }, [penugasanId]);
+
+  // Handler Simpan Perubahan Edit Penugasan
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(editForm)
+      });
+
+      if (response.ok) {
+        const updatedData = await response.json();
+        if (updatedData && updatedData.length > 0) {
+          setDetail(updatedData[0]);
+          setIsEditing(false);
+          alert('Data penugasan berhasil diperbarui! Surat Tugas & SPD otomatis menggunakan data baru.');
+        }
+      } else {
+        alert('Gagal memperbarui data penugasan.');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan jaringan saat menyimpan perubahan.');
+    }
+  };
 
   const handleTogglePersonil = (index) => {
     if (selectedPersonil.includes(index)) {
@@ -162,7 +212,7 @@ export default function DetailProgresPenugasanPage() {
     await fetchSPDFile(payloadSPD, `SPD_Depan_${(namaPersonil || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`);
   };
 
-  // Unduh SPD Depan untuk seluruh personil terpilih secara otomatis (satu per satu tanpa merusak XML Word)
+  // Unduh SPD Depan untuk seluruh personil terpilih secara otomatis
   const handleDownloadSPDDepanMassal = async () => {
     if (!detail) return;
     const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
@@ -177,7 +227,7 @@ export default function DetailProgresPenugasanPage() {
       const p = targetPersonil[i];
       await handleDownloadSPDDepanSingle(p);
       if (i < targetPersonil.length - 1) {
-        await delay(500); // Jeda 0.5 detik agar browser tidak memblokir pop-up
+        await delay(500);
       }
     }
   };
@@ -267,16 +317,25 @@ export default function DetailProgresPenugasanPage() {
             </div>
           </div>
 
-          <span style={{ 
-            padding: '6px 14px', 
-            borderRadius: '20px', 
-            fontSize: '12px', 
-            fontWeight: 'bold',
-            backgroundColor: detail.status === 'Selesai TLHP' ? '#c6f6d5' : '#feebc8',
-            color: detail.status === 'Selesai TLHP' ? '#22543d' : '#744210'
-          }}>
-            Status: {safeString(detail.status, 'Surat Tugas')}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button 
+              onClick={() => setIsEditing(true)} 
+              style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              ✏️ Edit Penugasan
+            </button>
+
+            <span style={{ 
+              padding: '6px 14px', 
+              borderRadius: '20px', 
+              fontSize: '12px', 
+              fontWeight: 'bold',
+              backgroundColor: detail.status === 'Selesai TLHP' ? '#c6f6d5' : '#feebc8',
+              color: detail.status === 'Selesai TLHP' ? '#22543d' : '#744210'
+            }}>
+              Status: {safeString(detail.status, 'Surat Tugas')}
+            </span>
+          </div>
         </div>
 
         {/* HIRARKI TIM */}
@@ -299,6 +358,87 @@ export default function DetailProgresPenugasanPage() {
           </div>
         </div>
       </div>
+
+      {/* MODAL POPUP EDIT PENUGASAN */}
+      {isEditing && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '500px', maxWidth: '90%' }}>
+            <h3 style={{ marginTop: 0, borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', fontSize: '16px' }}>✏️ Edit Penugasan</h3>
+            <form onSubmit={handleSaveEdit}>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Nomor Surat Penugasan:</label>
+                <input 
+                  type="text" 
+                  value={editForm.nomor_surat} 
+                  onChange={(e) => setEditForm({ ...editForm, nomor_surat: e.target.value })} 
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} 
+                  required
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Maksud / Tujuan Penugasan:</label>
+                <textarea 
+                  value={editForm.maksud_penugasan} 
+                  onChange={(e) => setEditForm({ ...editForm, maksud_penugasan: e.target.value })} 
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', height: '80px', fontSize: '13px' }} 
+                  required
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Obyek Pengawasan / Tempat Tujuan:</label>
+                <input 
+                  type="text" 
+                  value={editForm.tempat_tujuan} 
+                  onChange={(e) => setEditForm({ ...editForm, tempat_tujuan: e.target.value })} 
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} 
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tanggal Surat Tugas:</label>
+                  <input 
+                    type="date" 
+                    value={editForm.tanggal_surat} 
+                    onChange={(e) => setEditForm({ ...editForm, tanggal_surat: e.target.value })} 
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} 
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tanggal SPD:</label>
+                  <input 
+                    type="date" 
+                    value={editForm.tanggal_spd} 
+                    onChange={(e) => setEditForm({ ...editForm, tanggal_spd: e.target.value })} 
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setIsEditing(false)} 
+                  style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '4px', background: '#fff', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  Batal
+                </button>
+                <button 
+                  type="submit" 
+                  style={{ padding: '8px 16px', border: 'none', borderRadius: '4px', background: '#2b6cb0', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  Simpan Perubahan
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* TAHAPAN PENUGASAN */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
