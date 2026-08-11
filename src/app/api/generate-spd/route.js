@@ -38,6 +38,7 @@ export async function POST(request) {
       nullGetter: () => '-' 
     });
 
+    // Tangkap daftar pegawai
     const listPegawaiInput = Array.isArray(body.pegawai_spd) && body.pegawai_spd.length > 0
       ? body.pegawai_spd 
       : [body];
@@ -59,6 +60,7 @@ export async function POST(request) {
 
     const singlePegawai = formattedPegawaiSPD[0] || {};
 
+    // Pass data array dan data single sekaligus
     doc.render({
       ...singlePegawai,
       pegawai_spd: formattedPegawaiSPD
@@ -85,7 +87,7 @@ export async function POST(request) {
     console.error('Error SPD Route:', error);
     return NextResponse.json({ 
       success: false, 
-      message: 'Gagal membuat file SPD.', 
+      message: 'Gagal membuat file SPD gabungan.', 
       detail: error.toString() 
     }, { status: 500 });
   }
