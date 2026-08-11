@@ -6,6 +6,8 @@ import Link from 'next/link';
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export default function DetailProgresPenugasanPage() {
   const params = useParams();
   const penugasanId = params?.id;
@@ -94,26 +96,12 @@ export default function DetailProgresPenugasanPage() {
     }
   };
 
-  // Unduh SPD Tunggal
-  const handleDownloadSPDWord = async (personil) => {
-    if (!detail) return;
-    const payloadSPD = {
-      nomor_spd: detail.nomor_surat,
-      nama: personil.nama,
-      nip: personil.nip,
-      pangkat_gol: personil.pangkat_gol,
-      jabatan: personil.jabatan,
-      maksud_penugasan: detail.maksud_penugasan,
-      tempat_tujuan: detail.tempat_tujuan,
-      tgl_berangkat: detail.tanggal_surat,
-      tgl_kembali: detail.tanggal_surat,
-      tgl_spd: detail.tanggal_spd,
-    };
-
+  // Helper Pengunggah API SPD
+  const fetchSPDFile = async (payload, defaultFilename) => {
     const response = await fetch('/api/generate-spd', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payloadSPD),
+      body: JSON.stringify(payload),
     });
 
     if (response.ok) {
@@ -121,67 +109,69 @@ export default function DetailProgresPenugasanPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `SPD_${(personil.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
+      a.download = defaultFilename;
       document.body.appendChild(a);
       a.click();
       a.remove();
+    } else {
+      alert('Gagal membuat dokumen SPD.');
     }
   };
 
-  // Unduh SPD Gabungan
-  const handleDownloadSPDMassal = async () => {
+  // Unduh SPD Tunggal Lengkap (Depan + Belakang)
+  const handleDownloadSPDWord = async (personil) => {
+    if (!detail) return;
+    const namaPersonil = typeof personil === 'object' ? personil.nama : personil;
+    const payloadSPD = {
+      nomor_spd: detail.nomor_surat,
+      nama: namaPersonil,
+      nip: typeof personil === 'object' ? personil.nip : '',
+      pangkat_gol: typeof personil === 'object' ? personil.pangkat_gol : '',
+      jabatan: typeof personil === 'object' ? personil.jabatan : '',
+      maksud_penugasan: detail.maksud_penugasan,
+      tempat_tujuan: detail.tempat_tujuan,
+      tgl_berangkat: detail.tanggal_surat,
+      tgl_kembali: detail.tanggal_surat,
+      tgl_spd: detail.tanggal_spd,
+    };
+
+    await fetchSPDFile(payloadSPD, `SPD_Lengkap_${(namaPersonil || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`);
+  };
+
+  // 1. OPSI: Download SPD Halaman Depan Terpilih (Secara Otomatis/Multi-Download)
+  const handleDownloadSPDDepanMassal = async () => {
     if (!detail) return;
     const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
     const targetPersonil = listPersonil.filter((_, idx) => selectedPersonil.includes(idx));
 
     if (targetPersonil.length === 0) {
-      alert('Pilih minimal satu personil untuk mendownload SPD.');
+      alert('Pilih minimal satu personil untuk mendownload SPD Halaman Depan.');
       return;
     }
 
-    const payloadSPDMassal = {
-      nomor_surat: detail.nomor_surat,
+    for (let i = 0; i < targetPersonil.length; i++) {
+      const p = targetPersonil[i];
+      await handleDownloadSPDWord(p);
+      if (i < targetPersonil.length - 1) {
+        await delay(600);
+      }
+    }
+  };
+
+  // 2. OPSI: Download SPD Halaman Belakang Saja (Lembar Visum)
+  const handleDownloadSPDBelakang = async () => {
+    if (!detail) return;
+    const payloadVisum = {
+      nomor_spd: detail.nomor_surat,
       maksud_penugasan: detail.maksud_penugasan,
       tempat_tujuan: detail.tempat_tujuan,
-      tanggal_surat: detail.tanggal_surat,
-      tanggal_spd: detail.tanggal_spd,
-      pegawai_spd: targetPersonil.map(p => ({
-        nomor_spd: detail.nomor_surat,
-        nama: p.nama,
-        nip: p.nip,
-        pangkat_gol: p.pangkat_gol,
-        jabatan: p.jabatan,
-        maksud_penugasan: detail.maksud_penugasan,
-        tempat_tujuan: detail.tempat_tujuan,
-        tgl_berangkat: detail.tanggal_surat,
-        tgl_kembali: detail.tanggal_surat,
-        tgl_spd: detail.tanggal_spd,
-      }))
+      tgl_berangkat: detail.tanggal_surat,
+      tgl_kembali: detail.tanggal_surat,
+      tgl_spd: detail.tanggal_spd,
+      halaman_belakang_only: true
     };
 
-    try {
-      const response = await fetch('/api/generate-spd', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payloadSPDMassal),
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `SPD_Gabungan_${targetPersonil.length}_Personil.docx`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } else {
-        const errJson = await response.json();
-        alert(`Gagal membuat SPD Gabungan: ${errJson.message || 'Terjadi kesalahan'}`);
-      }
-    } catch (err) {
-      alert('Gagal menghubungi server untuk mendownload SPD.');
-    }
+    await fetchSPDFile(payloadVisum, `SPD_Halaman_Belakang_Visum.docx`);
   };
 
   // Google Drive ST TTD Handler
@@ -220,7 +210,7 @@ export default function DetailProgresPenugasanPage() {
   if (!detail) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Data penugasan tidak ditemukan.</div>;
 
   const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
-  const ketuaTim = detail.ketua_tim || (listPersonil.length > 0 ? listPersonil[0].nama : '-');
+  const ketuaTim = detail.ketua_tim || (listPersonil.length > 0 ? (typeof listPersonil[0] === 'object' ? listPersonil[0].nama : listPersonil[0]) : '-');
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif', paddingBottom: '40px' }}>
@@ -323,7 +313,7 @@ export default function DetailProgresPenugasanPage() {
             </div>
           </div>
 
-          {/* SPD PERSONIL DENGAN OPSI PILIH & DOWNLOAD MASSAL */}
+          {/* SPD PERSONIL DENGAN OPSI UNDUH HALAMAN DEPAN & BELAKANG */}
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px', backgroundColor: '#fdfdfd' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <span style={{ fontWeight: 'bold', fontSize: '13px' }}>📑 SPD / SPPD Personil</span>
@@ -335,9 +325,10 @@ export default function DetailProgresPenugasanPage() {
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+            {/* DAFTAR PERSONIL CHECKBOX */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
               {listPersonil.map((p, idx) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', backgroundColor: '#f7fafc', borderRadius: '4px', fontSize: '12px', border: '1px solid #edf2f7' }}>
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: '#f7fafc', borderRadius: '4px', fontSize: '12px', border: '1px solid #edf2f7' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1 }}>
                     <input 
                       type="checkbox" 
@@ -349,19 +340,30 @@ export default function DetailProgresPenugasanPage() {
                       <span style={{ color: '#718096', fontSize: '10px' }}>{typeof p === 'object' ? p.jabatan : ''}</span>
                     </div>
                   </label>
-                  <button onClick={() => handleDownloadSPDWord(p)} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>
+                  <button onClick={() => handleDownloadSPDWord(p)} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '3px 8px', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>
                     Word
                   </button>
                 </div>
               ))}
             </div>
 
-            <button 
-              onClick={handleDownloadSPDMassal}
-              style={{ width: '100%', backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-            >
-              📥 Download SPD Terpilih ({selectedPersonil.length})
-            </button>
+            {/* OPSI TOMBOL UNDUH FLEKSIBEL */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <button 
+                onClick={handleDownloadSPDDepanMassal}
+                style={{ width: '100%', backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                📄 Unduh Halaman Depan Terpilih ({selectedPersonil.length})
+              </button>
+
+              <button 
+                onClick={handleDownloadSPDBelakang}
+                style={{ width: '100%', backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                📑 Unduh Halaman Belakang (Visum)
+              </button>
+            </div>
+
           </div>
         </div>
 
