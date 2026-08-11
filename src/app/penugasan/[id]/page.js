@@ -27,11 +27,13 @@ export default function DetailProgresPenugasanPage() {
 
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeStep, setActiveStep] = useState(1); // 1: Perencanaan, 2: Pelaksanaan, 3: Pelaporan
+  const [activeStep, setActiveStep] = useState(1);
 
   // Preview States
   const [showSTPreview, setShowSTPreview] = useState(true);
   const [activeSPDPreviewIndex, setActiveSPDPreviewIndex] = useState(null);
+  const [showVisumPreview, setShowVisumPreview] = useState(false); // <--- KITA TAMBAHKAN DUA STATE INI
+  const [spdPageType, setSpdPageType] = useState('depan'); // 'depan' atau 'belakang'
 
   // Modal Edit State
   const [isEditing, setIsEditing] = useState(false);
@@ -171,10 +173,48 @@ export default function DetailProgresPenugasanPage() {
         a.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        alert('Gagal mengunduh SPD.');
+        alert('Gagal mengunduh SPD Depan.');
       }
     } catch (err) {
-      alert('Terjadi kesalahan jaringan saat mengunduh SPD.');
+      alert('Terjadi kesalahan jaringan saat mengunduh SPD Depan.');
+    }
+  };
+
+  // DOWNLOAD SPD BELAKANG (VISUM) WORD
+  const handleDownloadSPDBelakang = async () => {
+    if (!detail) return;
+    const payloadVisum = {
+      nomor_spd: detail.nomor_surat,
+      maksud_penugasan: detail.maksud_penugasan,
+      tempat_tujuan: detail.tempat_tujuan,
+      tgl_berangkat: detail.tanggal_surat,
+      tgl_kembali: detail.tanggal_surat,
+      tgl_spd: detail.tanggal_spd,
+      halaman_belakang_only: true
+    };
+
+    try {
+      const response = await fetch('/api/generate-spd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadVisum),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SPD_Halaman_Belakang_Visum.docx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        alert('Gagal mengunduh Halaman Belakang (Visum).');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan jaringan saat mengunduh Visum.');
     }
   };
 
@@ -298,7 +338,7 @@ export default function DetailProgresPenugasanPage() {
         </Link>
       </div>
 
-      {/* PROFIL PENUGASAN TERSTRUKTUR DENGAN HIERARKI RAPI */}
+      {/* PROFIL PENUGASAN TERSTRUKTUR */}
       <div style={{ backgroundColor: '#fff', border: '1px solid #cbd5e0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
         
         {/* HEADER PROFIL */}
@@ -320,7 +360,7 @@ export default function DetailProgresPenugasanPage() {
           </button>
         </div>
 
-        {/* STRUKTUR INFORMASI UTAMA & HIERARKI TIM */}
+        {/* HIERARKI PENUGASAN */}
         <div style={{ padding: '20px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <tbody>
@@ -431,7 +471,7 @@ export default function DetailProgresPenugasanPage() {
       {activeStep === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* AKSI DAN PRATINJAU LANGSUNG SURAT TUGAS */}
+          {/* PRATINJAU LANGSUNG SURAT TUGAS */}
           <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #edf2f7', paddingBottom: '12px' }}>
               <div>
@@ -557,39 +597,85 @@ export default function DetailProgresPenugasanPage() {
             </div>
           </div>
 
-          {/* PRATINJAU LANGSUNG SPD PERSONIL */}
+          {/* PRATINJAU DOKUMEN SPD (DEPAN & BELAKANG/VISUM) */}
           <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <div style={{ borderBottom: '1px solid #edf2f7', paddingBottom: '12px', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📑 Pratinjau Lembar SPD Personil</h3>
-              <span style={{ fontSize: '12px', color: '#718096' }}>Klik nama personil di bawah untuk melihat wujud pratinjau lembar SPD fisik masing-masing</span>
+            <div style={{ borderBottom: '1px solid #edf2f7', paddingBottom: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📑 Pratinjau Dokumen SPD (Halaman Depan & Belakang/Visum)</h3>
+                <span style={{ fontSize: '12px', color: '#718096' }}>Pilih personil dan sakelar halaman depan/belakang untuk melihat fisik lembar SPD</span>
+              </div>
+
+              {/* TOMBOL UNDUH SPESIFIK VISUM */}
+              <button 
+                onClick={handleDownloadSPDBelakang}
+                style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                📥 Unduh Word Lembar Visum (Belakang)
+              </button>
             </div>
 
-            {/* TAB LIST PERSONIL DENGAN PREVIEW */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              {listPersonil.map((p, idx) => {
-                const namaStr = typeof p === 'object' ? (p.nama || `Pegawai ${idx+1}`) : String(p);
-                return (
+            {/* SAKELAR DEPAN / BELAKANG & LIST PERSONIL */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {listPersonil.map((p, idx) => {
+                  const namaStr = typeof p === 'object' ? (p.nama || `Pegawai ${idx+1}`) : String(p);
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveSPDPreviewIndex(activeSPDPreviewIndex === idx ? null : idx)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '4px',
+                        border: '1px solid #cbd5e0',
+                        backgroundColor: activeSPDPreviewIndex === idx ? '#2b6cb0' : '#f7fafc',
+                        color: activeSPDPreviewIndex === idx ? '#fff' : '#2d3748',
+                        fontWeight: 'bold',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      👤 SPD {namaStr}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* SAKELAR DEPAN OR BELAKANG */}
+              {activeSPDPreviewIndex !== null && (
+                <div style={{ display: 'flex', border: '1px solid #cbd5e0', borderRadius: '4px', overflow: 'hidden' }}>
                   <button
-                    key={idx}
-                    onClick={() => setActiveSPDPreviewIndex(activeSPDPreviewIndex === idx ? null : idx)}
+                    onClick={() => setSpdPageType('depan')}
                     style={{
-                      padding: '8px 14px',
-                      borderRadius: '4px',
-                      border: '1px solid #cbd5e0',
-                      backgroundColor: activeSPDPreviewIndex === idx ? '#2b6cb0' : '#f7fafc',
-                      color: activeSPDPreviewIndex === idx ? '#fff' : '#2d3748',
+                      padding: '6px 12px',
+                      border: 'none',
+                      backgroundColor: spdPageType === 'depan' ? '#4a5568' : '#fff',
+                      color: spdPageType === 'depan' ? '#fff' : '#4a5568',
                       fontWeight: 'bold',
                       fontSize: '12px',
                       cursor: 'pointer'
                     }}
                   >
-                    👤 SPD {namaStr}
+                    📄 Halaman Depan
                   </button>
-                );
-              })}
+                  <button
+                    onClick={() => setSpdPageType('belakang')}
+                    style={{
+                      padding: '6px 12px',
+                      border: 'none',
+                      backgroundColor: spdPageType === 'belakang' ? '#4a5568' : '#fff',
+                      color: spdPageType === 'belakang' ? '#fff' : '#4a5568',
+                      fontWeight: 'bold',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📑 Halaman Belakang (Visum)
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* TAMPILAN PRATINJAU SPD AKTIF */}
+            {/* KONTEN PREVIEW SPD */}
             {activeSPDPreviewIndex !== null && listPersonil[activeSPDPreviewIndex] && (
               <div style={{ backgroundColor: '#f7fafc', padding: '20px', borderRadius: '6px', border: '1px solid #cbd5e0' }}>
                 {(() => {
@@ -599,58 +685,115 @@ export default function DetailProgresPenugasanPage() {
                   const pGol = typeof p === 'object' ? (p.pangkat_gol || '-') : '-';
                   const pJab = typeof p === 'object' ? (p.jabatan || '-') : '-';
 
-                  return (
-                    <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', border: '1px solid #e2e8f0', fontFamily: 'Arial, sans-serif', fontSize: '12px' }}>
-                      <div style={{ textAlign: 'right', fontSize: '10px', marginBottom: '10px' }}>
-                        Lembar ke : .........<br />Nomor : {safeString(detail.nomor_surat)}
-                      </div>
+                  if (spdPageType === 'depan') {
+                    // PREVIEW HALAMAN DEPAN
+                    return (
+                      <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', border: '1px solid #e2e8f0', fontFamily: 'Arial, sans-serif', fontSize: '12px' }}>
+                        <div style={{ textAlign: 'right', fontSize: '10px', marginBottom: '10px' }}>
+                          Lembar ke : .........<br />Nomor : {safeString(detail.nomor_surat)}
+                        </div>
 
-                      <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', textDecoration: 'underline', marginBottom: '16px' }}>
-                        SURAT PERJALANAN DINAS (S.P.D)
-                      </div>
+                        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', textDecoration: 'underline', marginBottom: '16px' }}>
+                          SURAT PERJALANAN DINAS (S.P.D)
+                        </div>
 
-                      <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="6">
-                        <tbody>
-                          <tr>
-                            <td style={{ width: '30px', textAlign: 'center' }}>1.</td>
-                            <td style={{ width: '220px' }}>Pengguna Anggaran</td>
-                            <td>ARRIE HENDRAWAN MAHADHIEKA, S.H.</td>
-                          </tr>
-                          <tr>
-                            <td style={{ textAlign: 'center' }}>2.</td>
-                            <td>Nama Pegawai yang diperintah</td>
-                            <td><strong>{pNama}</strong></td>
-                          </tr>
-                          <tr>
-                            <td style={{ textAlign: 'center' }}>3.</td>
-                            <td>a. Pangkat dan Golongan<br />b. Jabatan</td>
-                            <td>a. {pGol}<br />b. {pJab}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ textAlign: 'center' }}>4.</td>
-                            <td>Maksud Perjalanan Dinas</td>
-                            <td>{safeString(detail.maksud_penugasan)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ textAlign: 'center' }}>5.</td>
-                            <td>Tempat Berangkat / Tujuan</td>
-                            <td>Singosari, Kab. Malang / <strong>{safeString(detail.tempat_tujuan)}</strong></td>
-                          </tr>
-                          <tr>
-                            <td style={{ textAlign: 'center' }}>6.</td>
-                            <td>Tanggal Berangkat / Kembali</td>
-                            <td>{formatTanggalIndo(detail.tanggal_surat)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="6">
+                          <tbody>
+                            <tr>
+                              <td style={{ width: '30px', textAlign: 'center' }}>1.</td>
+                              <td style={{ width: '220px' }}>Pengguna Anggaran</td>
+                              <td>ARRIE HENDRAWAN MAHADHIEKA, S.H.</td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>2.</td>
+                              <td>Nama Pegawai yang diperintah</td>
+                              <td><strong>{pNama}</strong></td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>3.</td>
+                              <td>a. Pangkat dan Golongan<br />b. Jabatan</td>
+                              <td>a. {pGol}<br />b. {pJab}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>4.</td>
+                              <td>Maksud Perjalanan Dinas</td>
+                              <td>{safeString(detail.maksud_penugasan)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>5.</td>
+                              <td>Tempat Berangkat / Tujuan</td>
+                              <td>Singosari, Kab. Malang / <strong>{safeString(detail.tempat_tujuan)}</strong></td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>6.</td>
+                              <td>Tanggal Berangkat / Kembali</td>
+                              <td>{formatTanggalIndo(detail.tanggal_surat)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
 
-                      <div style={{ marginTop: '16px', textAlign: 'right' }}>
-                        <button onClick={() => handleDownloadSPDDepanSingle(p)} style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                          📥 Unduh File Word SPD ({pNama})
-                        </button>
+                        <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                          <button onClick={() => handleDownloadSPDDepanSingle(p)} style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            📥 Unduh File Word SPD Depan ({pNama})
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
+                    );
+                  } else {
+                    // PREVIEW HALAMAN BELAKANG (VISUM)
+                    return (
+                      <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', border: '1px solid #e2e8f0', fontFamily: 'Arial, sans-serif', fontSize: '11px' }}>
+                        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '12px', marginBottom: '16px' }}>
+                          LEMBAR VISUM / PEMERIKSAAN PERJALANAN DINAS
+                        </div>
+
+                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="8">
+                          <tbody>
+                            <tr>
+                              <td style={{ width: '50%', verticalAlign: 'top' }}>
+                                <strong>I. Berangkat dari</strong> : Singosari, Kab. Malang<br />
+                                <strong>Ke</strong> : {safeString(detail.tempat_tujuan)}<br />
+                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
+                                Pengguna Anggaran,<br /><br /><br />
+                                <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
+                                NIP. 198008012010011018
+                              </td>
+                              <td style={{ width: '50%', verticalAlign: 'top' }}>
+                                <strong>Tiba di</strong> : {safeString(detail.tempat_tujuan)}<br />
+                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
+                                Kepala / Pejabat Setempat,<br /><br /><br />
+                                ..................................................<br />
+                                NIP.
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style={{ verticalAlign: 'top' }}>
+                                <strong>II. Berangkat dari</strong> : {safeString(detail.tempat_tujuan)}<br />
+                                <strong>Ke</strong> : Singosari, Kab. Malang<br />
+                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
+                                Kepala / Pejabat Setempat,<br /><br /><br />
+                                ..................................................<br />
+                                NIP.
+                              </td>
+                              <td style={{ verticalAlign: 'top' }}>
+                                <strong>Tiba di</strong> : Singosari, Kab. Malang<br />
+                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
+                                Pengguna Anggaran,<br /><br /><br />
+                                <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
+                                NIP. 198008012010011018
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                          <button onClick={handleDownloadSPDBelakang} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            📥 Unduh File Word Lembar Visum (Belakang)
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
                 })()}
               </div>
             )}
