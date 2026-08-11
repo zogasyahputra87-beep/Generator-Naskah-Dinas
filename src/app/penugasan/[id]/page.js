@@ -14,6 +14,13 @@ function safeString(val, fallback = '-') {
   return String(val);
 }
 
+function formatTanggalIndo(tanggalStr) {
+  if (!tanggalStr) return '-';
+  const opsi = { day: 'numeric', month: 'long', year: 'numeric' };
+  const date = new Date(tanggalStr);
+  return isNaN(date.getTime()) ? tanggalStr : date.toLocaleDateString('id-ID', opsi);
+}
+
 export default function DetailProgresPenugasanPage() {
   const params = useParams();
   const penugasanId = params?.id;
@@ -23,10 +30,8 @@ export default function DetailProgresPenugasanPage() {
   const [activeStep, setActiveStep] = useState(1); // 1: Perencanaan, 2: Pelaksanaan, 3: Pelaporan
 
   // Preview States
-  const [stBlobUrl, setStBlobUrl] = useState(null);
-  const [spdPreviewUrls, setSpdPreviewUrls] = useState({});
-  const [generatingST, setGeneratingST] = useState(false);
-  const [generatingSPD, setGeneratingSPD] = useState({});
+  const [showSTPreview, setShowSTPreview] = useState(true);
+  const [activeSPDPreviewIndex, setActiveSPDPreviewIndex] = useState(null);
 
   // Modal Edit State
   const [isEditing, setIsEditing] = useState(false);
@@ -73,24 +78,29 @@ export default function DetailProgresPenugasanPage() {
   }, [penugasanId]);
 
   const initEditForm = (item) => {
+    const personilArr = Array.isArray(item.personil) ? JSON.parse(JSON.stringify(item.personil)) : [];
+    let ketuaNama = safeString(item.ketua_tim, '');
+    if (!ketuaNama && personilArr.length > 0) {
+      ketuaNama = typeof personilArr[0] === 'object' ? (personilArr[0].nama || '') : String(personilArr[0]);
+    }
+
     setEditForm({
       nomor_surat: item.nomor_surat || '',
       maksud_penugasan: item.maksud_penugasan || '',
       tempat_tujuan: item.tempat_tujuan || '',
       irban_wilayah: item.irban_wilayah || 'Inspektur Pembantu Wilayah I',
       pengendali_teknis: item.pengendali_teknis || 'Auditor Ahli Madya',
-      ketua_tim: safeString(item.ketua_tim, ''),
+      ketua_tim: ketuaNama,
       tanggal_surat: item.tanggal_surat || '',
       tanggal_spd: item.tanggal_spd || '',
       dasar_hukum: Array.isArray(item.dasar_hukum) ? [...item.dasar_hukum] : [],
-      personil: Array.isArray(item.personil) ? JSON.parse(JSON.stringify(item.personil)) : [],
+      personil: personilArr,
     });
   };
 
-  // HANDLER PREVIEW SURAT TUGAS
-  const handleGenerateSTPreview = async () => {
+  // DOWNLOAD SURAT TUGAS WORD
+  const handleDownloadSuratTugas = async () => {
     if (!detail) return;
-    setGeneratingST(true);
     const payload = {
       nomor_surat: detail.nomor_surat,
       dasar_list: Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [],
@@ -110,29 +120,32 @@ export default function DetailProgresPenugasanPage() {
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        setStBlobUrl(url);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Surat_Tugas_${safeString(detail.nomor_surat, 'ST').replace(/[\/\s]+/g, '_')}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
       } else {
-        alert('Gagal menghasilkan preview Surat Tugas.');
+        const errJson = await response.json().catch(() => ({}));
+        alert(`Gagal mengunduh Surat Tugas: ${errJson.message || 'Error Server'}`);
       }
     } catch (err) {
-      alert('Terjadi kesalahan jaringan.');
-    } finally {
-      setGeneratingST(false);
+      alert('Gagal menghubungi server API Surat Tugas.');
     }
   };
 
-  // HANDLER PREVIEW SPD PERSONIL
-  const handleGenerateSPDPreview = async (index, personil) => {
+  // DOWNLOAD SPD DEPAN SINGLE WORD
+  const handleDownloadSPDDepanSingle = async (personil) => {
     if (!detail) return;
-    setGeneratingSPD(prev => ({ ...prev, [index]: true }));
-
     const namaPersonil = typeof personil === 'object' ? (personil.nama || '') : safeString(personil, '');
     const payloadSPD = {
       nomor_spd: detail.nomor_surat,
       nama: namaPersonil,
-      nip: typeof personil === 'object' ? (personil.nip || '') : '',
-      pangkat_gol: typeof personil === 'object' ? (personil.pangkat_gol || '') : '',
-      jabatan: typeof personil === 'object' ? (personil.jabatan || '') : '',
+      nip: typeof personil === 'object' ? (personil.nip || '-') : '-',
+      pangkat_gol: typeof personil === 'object' ? (personil.pangkat_gol || '-') : '-',
+      jabatan: typeof personil === 'object' ? (personil.jabatan || '-') : '-',
       maksud_penugasan: detail.maksud_penugasan,
       tempat_tujuan: detail.tempat_tujuan,
       tgl_berangkat: detail.tanggal_surat,
@@ -150,14 +163,18 @@ export default function DetailProgresPenugasanPage() {
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        setSpdPreviewUrls(prev => ({ ...prev, [index]: url }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SPD_Depan_${(namaPersonil || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
       } else {
-        alert('Gagal menghasilkan preview SPD.');
+        alert('Gagal mengunduh SPD.');
       }
     } catch (err) {
-      alert('Terjadi kesalahan jaringan.');
-    } finally {
-      setGeneratingSPD(prev => ({ ...prev, [index]: false }));
+      alert('Terjadi kesalahan jaringan saat mengunduh SPD.');
     }
   };
 
@@ -181,8 +198,6 @@ export default function DetailProgresPenugasanPage() {
         if (updatedData && updatedData.length > 0) {
           setDetail(updatedData[0]);
           setIsEditing(false);
-          setStBlobUrl(null); // Reset preview agar diperbarui
-          setSpdPreviewUrls({});
           alert('Data penugasan dan tim berhasil diperbarui!');
         }
       } else {
@@ -193,7 +208,7 @@ export default function DetailProgresPenugasanPage() {
     }
   };
 
-  // HANDLER DYNAMIC FORM EDIT PERSONIL
+  // FORM EDIT DYNAMIC HANDLERS
   const handlePersonilChange = (index, field, value) => {
     const updated = [...editForm.personil];
     if (typeof updated[index] === 'string') {
@@ -215,7 +230,6 @@ export default function DetailProgresPenugasanPage() {
     setEditForm({ ...editForm, personil: updated });
   };
 
-  // HANDLER DYNAMIC FORM EDIT DASAR HUKUM
   const handleDasarChange = (index, value) => {
     const updated = [...editForm.dasar_hukum];
     updated[index] = value;
@@ -233,7 +247,7 @@ export default function DetailProgresPenugasanPage() {
 
   // UPLOAD ST TTD
   const handleUploadSTSigned = async () => {
-    const linkGDrive = prompt('Masukkan Link Google Drive / Docs Surat Tugas TTD:');
+    const linkGDrive = prompt('Masukkan Link Google Drive Surat Tugas TTD:');
     if (!linkGDrive) return;
 
     try {
@@ -252,7 +266,7 @@ export default function DetailProgresPenugasanPage() {
       });
 
       if (response.ok) {
-        alert('Tautan Google Drive Surat Tugas TTD berhasil disimpan!');
+        alert('Tautan Google Drive berhasil disimpan!');
         window.location.reload();
       }
     } catch (err) {
@@ -264,6 +278,15 @@ export default function DetailProgresPenugasanPage() {
   if (!detail) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Data penugasan tidak ditemukan.</div>;
 
   const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
+  const listDasar = Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [];
+
+  let ketuaTimNama = '-';
+  if (detail.ketua_tim) {
+    ketuaTimNama = safeString(detail.ketua_tim);
+  } else if (listPersonil.length > 0) {
+    const p1 = listPersonil[0];
+    ketuaTimNama = typeof p1 === 'object' ? (p1.nama || '-') : String(p1);
+  }
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', fontFamily: 'sans-serif', paddingBottom: '60px' }}>
@@ -275,31 +298,85 @@ export default function DetailProgresPenugasanPage() {
         </Link>
       </div>
 
-      {/* HEADER PROFIL PENUGASAN */}
-      <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      {/* PROFIL PENUGASAN TERSTRUKTUR DENGAN HIERARKI RAPI */}
+      <div style={{ backgroundColor: '#fff', border: '1px solid #cbd5e0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
+        
+        {/* HEADER PROFIL */}
+        <div style={{ backgroundColor: '#2b6cb0', color: '#fff', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#2b6cb0', textTransform: 'uppercase' }}>
-              Profil Penugasan Pengawasan
+            <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 }}>
+              Naskah Dinas & Profil Penugasan Pengawasan
             </span>
-            <h1 style={{ margin: '4px 0 6px 0', fontSize: '20px', color: '#1a202c' }}>
+            <h1 style={{ margin: '4px 0 0 0', fontSize: '18px', fontWeight: 'bold' }}>
               {safeString(detail.maksud_penugasan)}
             </h1>
-            <div style={{ fontSize: '13px', color: '#4a5568' }}>
-              Nomor: <strong>{safeString(detail.nomor_surat)}</strong> | Obyek: <strong>{safeString(detail.tempat_tujuan)}</strong>
-            </div>
           </div>
 
           <button 
             onClick={() => { initEditForm(detail); setIsEditing(true); }}
-            style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+            style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
           >
-            ✏️ Edit Penugasan Lengkap
+            ✏️ Edit Penugasan Menyeluruh
           </button>
+        </div>
+
+        {/* STRUKTUR INFORMASI UTAMA & HIERARKI TIM */}
+        <div style={{ padding: '20px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                <td style={{ padding: '8px 0', width: '200px', fontWeight: 'bold', color: '#4a5568' }}>Nomor Penugasan / Surat</td>
+                <td style={{ padding: '8px 0', width: '20px', color: '#a0aec0' }}>:</td>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#2b6cb0' }}>{safeString(detail.nomor_surat)}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Obyek Pengawasan (Tujuan)</td>
+                <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#1a202c' }}>{safeString(detail.tempat_tujuan)}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Irban Wilayah Penanggungjawab</td>
+                <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
+                <td style={{ padding: '8px 0', color: '#2d3748' }}>{safeString(detail.irban_wilayah, 'Inspektur Pembantu Wilayah I')}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Pengendali Teknis (Daltek)</td>
+                <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
+                <td style={{ padding: '8px 0', color: '#2d3748' }}>{safeString(detail.pengendali_teknis, 'Auditor Ahli Madya')}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Ketua Tim Penugasan</td>
+                <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#2d3748' }}>{ketuaTimNama}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Tanggal Pelaksanaan / Surat</td>
+                <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
+                <td style={{ padding: '8px 0', color: '#2d3748' }}>{formatTanggalIndo(detail.tanggal_surat)}</td>
+              </tr>
+              <tr>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568', verticalAlign: 'top' }}>Anggota Tim ({listPersonil.length} Orang)</td>
+                <td style={{ padding: '8px 0', color: '#a0aec0', verticalAlign: 'top' }}>:</td>
+                <td style={{ padding: '8px 0', color: '#2d3748' }}>
+                  <ol style={{ margin: 0, paddingLeft: '18px' }}>
+                    {listPersonil.map((p, pIdx) => {
+                      const pNama = typeof p === 'object' ? (p.nama || '-') : String(p);
+                      const pJabatan = typeof p === 'object' ? (p.jabatan || '') : '';
+                      return (
+                        <li key={pIdx} style={{ marginBottom: '2px' }}>
+                          <strong>{pNama}</strong> {pJabatan ? <span style={{ color: '#718096', fontSize: '12px' }}>({pJabatan})</span> : null}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* TAB NAVIGASI TAHAPAN */}
+      {/* TAB NAVIGASI TAHAPAN PENUGASAN */}
       <div style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '24px' }}>
         <button 
           onClick={() => setActiveStep(1)}
@@ -314,7 +391,7 @@ export default function DetailProgresPenugasanPage() {
             color: activeStep === 1 ? '#2b6cb0' : '#718096'
           }}
         >
-          1. Perencanaan & Persiapan
+          1. Perencanaan & Naskah Dinas (ST/SPD)
         </button>
 
         <button 
@@ -350,138 +427,260 @@ export default function DetailProgresPenugasanPage() {
         </button>
       </div>
 
-      {/* ISIAN TAHAP 1: PERENCANAAN & PERSIAPAN */}
+      {/* TAHAP 1: PERENCANAAN & NASKAH DINAS */}
       {activeStep === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* SECTION SURAT TUGAS */}
+          {/* AKSI DAN PRATINJAU LANGSUNG SURAT TUGAS */}
           <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #edf2f7', paddingBottom: '12px' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📄 Dokumen Surat Tugas</h3>
-                <span style={{ fontSize: '12px', color: '#718096' }}>Generate Word, Pratinjau Dokumen, dan Tautkan File TTD</span>
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📄 Pratinjau Naskah Surat Tugas</h3>
+                <span style={{ fontSize: '12px', color: '#718096' }}>Tampilan fisik naskah dinas Surat Tugas sebelum diunduh atau disahkan</span>
               </div>
-              <span style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', backgroundColor: detail.status_st === 'Disahkan (Sudah TTD)' ? '#c6f6d5' : '#feebc8', color: detail.status_st === 'Disahkan (Sudah TTD)' ? '#22543d' : '#744210' }}>
-                {safeString(detail.status_st, 'Hasil Generate')}
-              </span>
-            </div>
 
-            {/* ACTION BUTTONS ST */}
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              <button 
-                onClick={handleGenerateSTPreview} 
-                disabled={generatingST}
-                style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-              >
-                {generatingST ? 'Memproses...' : '👁️ Pratinjau Dokumen Surat Tugas'}
-              </button>
-
-              {detail.link_st_ttd ? (
-                <a href={detail.link_st_ttd} target="_blank" rel="noreferrer" style={{ backgroundColor: '#38a169', color: '#fff', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', textDecoration: 'none' }}>
-                  🔗 Buka ST TTD di Google Drive / Docs
-                </a>
-              ) : (
-                <button onClick={handleUploadSTSigned} style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                  📤 Tambahkan / Tautkan ST TTD (GDrive)
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  onClick={handleDownloadSuratTugas}
+                  style={{ backgroundColor: '#0066cc', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  📥 Unduh File Word (.docx)
                 </button>
-              )}
+
+                {detail.link_st_ttd ? (
+                  <a href={detail.link_st_ttd} target="_blank" rel="noreferrer" style={{ backgroundColor: '#38a169', color: '#fff', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', textDecoration: 'none' }}>
+                    🔗 Lihat ST TTD di GDrive
+                  </a>
+                ) : (
+                  <button onClick={handleUploadSTSigned} style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                    📤 Tambahkan ST TTD (GDrive)
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* PREVIEW CONTAINER ST */}
-            {stBlobUrl && (
-              <div style={{ border: '1px solid #cbd5e0', borderRadius: '6px', overflow: 'hidden', backgroundColor: '#f7fafc', padding: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#4a5568' }}>Pratinjau Hasil Generate Surat Tugas (.docx)</span>
-                  <a href={stBlobUrl} download={`Surat_Tugas_${safeString(detail.nomor_surat, 'ST').replace(/[\/\s]+/g, '_')}.docx`} style={{ backgroundColor: '#4a5568', color: '#fff', padding: '6px 12px', borderRadius: '4px', fontSize: '12px', textDecoration: 'none', fontWeight: 'bold' }}>
-                    📥 Unduh File Word (.docx)
-                  </a>
-                </div>
+            {/* KOMPONEN PRATINJAU KERTAS SURAT TUGAS */}
+            <div style={{ backgroundColor: '#f7fafc', padding: '24px', borderRadius: '6px', border: '1px solid #cbd5e0', overflowX: 'auto' }}>
+              <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '40px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#000', lineHeight: 1.5 }}>
                 
-                {/* Visual Placeholder Pratinjau */}
-                <div style={{ border: '1px dashed #cbd5e0', padding: '30px', textAlign: 'center', backgroundColor: '#fff', borderRadius: '4px' }}>
-                  <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#2d3748', fontWeight: 'bold' }}>
-                    Surat Tugas Nomor: {safeString(detail.nomor_surat)} Siap Diunduh!
-                  </p>
-                  <p style={{ margin: 0, fontSize: '11px', color: '#718096' }}>
-                    File Word (.docx) dapat langsung dibuka di Microsoft Word atau diunggah ke Google Docs untuk dibagikan.
-                  </p>
+                {/* KOP SURAT */}
+                <div style={{ textAlign: 'center', borderBottom: '3px double #000', paddingBottom: '8px', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 'bold' }}>PEMERINTAH KABUPATEN MALANG</div>
+                  <div style={{ fontSize: '16px', fontWeight: 'bold' }}>INSPEKTORAT DAERAH</div>
+                  <div style={{ fontSize: '10px', marginTop: '4px' }}>
+                    Jalan Raya Mondoroko 17B Singosari, Kabupaten Malang, Jawa Timur<br />
+                    Telepon/Faksimile ( 0341 ) 451905 Laman: inspektorat.malangkab.go.id | Pos-el: inspektorat@malangkab.go.id Kode Pos: 65153
+                  </div>
                 </div>
+
+                {/* JUDUL SURAT */}
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 'bold', textDecoration: 'underline' }}>SURAT TUGAS</div>
+                  <div style={{ fontSize: '12px' }}>NOMOR: {safeString(detail.nomor_surat)}</div>
+                </div>
+
+                {/* DASAR HUKUM */}
+                <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '80px', fontWeight: 'bold', verticalAlign: 'top' }}>Dasar</td>
+                      <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
+                      <td style={{ verticalAlign: 'top' }}>
+                        {listDasar.length > 0 ? (
+                          <ol style={{ margin: 0, paddingLeft: '16px' }}>
+                            {listDasar.map((d, dIdx) => (
+                              <li key={dIdx} style={{ marginBottom: '4px' }}>{safeString(d)}</li>
+                            ))}
+                          </ol>
+                        ) : (
+                          'Peraturan Daerah Kabupaten Malang tentang Pokok-Pokok Pengelolaan Keuangan Daerah.'
+                        )}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div style={{ textAlign: 'center', fontWeight: 'bold', margin: '16px 0' }}>MEMERINTAHKAN:</div>
+
+                {/* KEPADA / PEGAWAI */}
+                <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '80px', fontWeight: 'bold', verticalAlign: 'top' }}>Kepada</td>
+                      <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
+                      <td style={{ verticalAlign: 'top' }}>
+                        {listPersonil.map((p, pIdx) => {
+                          const pNama = typeof p === 'object' ? (p.nama || '-') : String(p);
+                          const pNip = typeof p === 'object' ? (p.nip || '-') : '-';
+                          const pGol = typeof p === 'object' ? (p.pangkat_gol || '-') : '-';
+                          const pJab = typeof p === 'object' ? (p.jabatan || '-') : '-';
+                          return (
+                            <div key={pIdx} style={{ marginBottom: '10px' }}>
+                              <strong>{pIdx + 1}. Nama</strong> : {pNama}<br />
+                              &nbsp;&nbsp;&nbsp;&nbsp;<strong>NIP</strong> : {pNip}<br />
+                              &nbsp;&nbsp;&nbsp;&nbsp;<strong>Pangkat/Gol</strong> : {pGol}<br />
+                              &nbsp;&nbsp;&nbsp;&nbsp;<strong>Jabatan</strong> : {pJab}
+                            </div>
+                          );
+                        })}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* UNTUK */}
+                <table style={{ width: '100%', marginBottom: '24px', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '80px', fontWeight: 'bold', verticalAlign: 'top' }}>Untuk</td>
+                      <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
+                      <td style={{ verticalAlign: 'top' }}>
+                        {safeString(detail.maksud_penugasan)} di {safeString(detail.tempat_tujuan)}.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* TANDA TANGAN */}
+                <div style={{ float: 'right', width: '300px', textAlign: 'left', marginTop: '20px' }}>
+                  Dikeluarkan di Singosari<br />
+                  Pada tanggal {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
+                  <strong>INSPEKTUR DAERAH KABUPATEN MALANG</strong>
+                  <br /><br /><br /><br />
+                  <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
+                  Pembina Utama Muda<br />
+                  NIP. 198008012010011018
+                </div>
+                <div style={{ clear: 'both' }}></div>
+
+              </div>
+            </div>
+          </div>
+
+          {/* PRATINJAU LANGSUNG SPD PERSONIL */}
+          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ borderBottom: '1px solid #edf2f7', paddingBottom: '12px', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📑 Pratinjau Lembar SPD Personil</h3>
+              <span style={{ fontSize: '12px', color: '#718096' }}>Klik nama personil di bawah untuk melihat wujud pratinjau lembar SPD fisik masing-masing</span>
+            </div>
+
+            {/* TAB LIST PERSONIL DENGAN PREVIEW */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              {listPersonil.map((p, idx) => {
+                const namaStr = typeof p === 'object' ? (p.nama || `Pegawai ${idx+1}`) : String(p);
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveSPDPreviewIndex(activeSPDPreviewIndex === idx ? null : idx)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '4px',
+                      border: '1px solid #cbd5e0',
+                      backgroundColor: activeSPDPreviewIndex === idx ? '#2b6cb0' : '#f7fafc',
+                      color: activeSPDPreviewIndex === idx ? '#fff' : '#2d3748',
+                      fontWeight: 'bold',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    👤 SPD {namaStr}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* TAMPILAN PRATINJAU SPD AKTIF */}
+            {activeSPDPreviewIndex !== null && listPersonil[activeSPDPreviewIndex] && (
+              <div style={{ backgroundColor: '#f7fafc', padding: '20px', borderRadius: '6px', border: '1px solid #cbd5e0' }}>
+                {(() => {
+                  const p = listPersonil[activeSPDPreviewIndex];
+                  const pNama = typeof p === 'object' ? (p.nama || '-') : String(p);
+                  const pNip = typeof p === 'object' ? (p.nip || '-') : '-';
+                  const pGol = typeof p === 'object' ? (p.pangkat_gol || '-') : '-';
+                  const pJab = typeof p === 'object' ? (p.jabatan || '-') : '-';
+
+                  return (
+                    <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', border: '1px solid #e2e8f0', fontFamily: 'Arial, sans-serif', fontSize: '12px' }}>
+                      <div style={{ textAlign: 'right', fontSize: '10px', marginBottom: '10px' }}>
+                        Lembar ke : .........<br />Nomor : {safeString(detail.nomor_surat)}
+                      </div>
+
+                      <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', textDecoration: 'underline', marginBottom: '16px' }}>
+                        SURAT PERJALANAN DINAS (S.P.D)
+                      </div>
+
+                      <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="6">
+                        <tbody>
+                          <tr>
+                            <td style={{ width: '30px', textAlign: 'center' }}>1.</td>
+                            <td style={{ width: '220px' }}>Pengguna Anggaran</td>
+                            <td>ARRIE HENDRAWAN MAHADHIEKA, S.H.</td>
+                          </tr>
+                          <tr>
+                            <td style={{ textAlign: 'center' }}>2.</td>
+                            <td>Nama Pegawai yang diperintah</td>
+                            <td><strong>{pNama}</strong></td>
+                          </tr>
+                          <tr>
+                            <td style={{ textAlign: 'center' }}>3.</td>
+                            <td>a. Pangkat dan Golongan<br />b. Jabatan</td>
+                            <td>a. {pGol}<br />b. {pJab}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ textAlign: 'center' }}>4.</td>
+                            <td>Maksud Perjalanan Dinas</td>
+                            <td>{safeString(detail.maksud_penugasan)}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ textAlign: 'center' }}>5.</td>
+                            <td>Tempat Berangkat / Tujuan</td>
+                            <td>Singosari, Kab. Malang / <strong>{safeString(detail.tempat_tujuan)}</strong></td>
+                          </tr>
+                          <tr>
+                            <td style={{ textAlign: 'center' }}>6.</td>
+                            <td>Tanggal Berangkat / Kembali</td>
+                            <td>{formatTanggalIndo(detail.tanggal_surat)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                        <button onClick={() => handleDownloadSPDDepanSingle(p)} style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                          📥 Unduh File Word SPD ({pNama})
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
 
-          {/* SECTION SPD PERSONIL */}
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <div style={{ borderBottom: '1px solid #edf2f7', paddingBottom: '12px', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📑 Dokumen Surat Perjalanan Dinas (SPD) Personil</h3>
-              <span style={{ fontSize: '12px', color: '#718096' }}>Daftar personil penugasan dan pratinjau lembar SPD masing-masing</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {listPersonil.map((p, idx) => {
-                const namaStr = safeString(p);
-                const nipStr = typeof p === 'object' ? (p.nip || '-') : '-';
-                const jabatanStr = typeof p === 'object' ? (p.jabatan || 'Anggota Tim') : 'Anggota Tim';
-
-                return (
-                  <div key={idx} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '16px', backgroundColor: '#f8fafc' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <strong style={{ fontSize: '14px', color: '#2d3748', display: 'block' }}>{idx + 1}. {namaStr}</strong>
-                        <span style={{ fontSize: '12px', color: '#718096' }}>NIP: {nipStr} | Jabatan: {jabatanStr}</span>
-                      </div>
-
-                      <button 
-                        onClick={() => handleGenerateSPDPreview(idx, p)}
-                        disabled={generatingSPD[idx]}
-                        style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
-                      >
-                        {generatingSPD[idx] ? 'Memproses...' : '📄 Pratinjau SPD Depan'}
-                      </button>
-                    </div>
-
-                    {/* PREVIEW CONTAINER SPD INDIVIDUAL */}
-                    {spdPreviewUrls[idx] && (
-                      <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #cbd5e0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '11px', color: '#38a169', fontWeight: 'bold' }}>✓ Dokumen SPD Depan Siap</span>
-                          <a href={spdPreviewUrls[idx]} download={`SPD_Depan_${namaStr.replace(/[\/\s]+/g, '_')}.docx`} style={{ backgroundColor: '#2b6cb0', color: '#fff', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', textDecoration: 'none', fontWeight: 'bold' }}>
-                            📥 Unduh SPD Word (.docx)
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
         </div>
       )}
 
-      {/* ISIAN TAHAP 2: PELAKSANAAN */}
+      {/* TAHAP 2: PELAKSANAAN */}
       {activeStep === 2 && (
         <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <h3 style={{ marginTop: 0, color: '#dd6b20' }}>Tahap 2: Pelaksanaan Pemeriksaan Lapangan</h3>
           <p style={{ fontSize: '13px', color: '#4a5568' }}>
-            Unggah Berita Acara, Kertas Kerja Pemeriksaan (KKP), dan dokumentasi pemeriksaan lapangan.
+            Dokumentasi Kertas Kerja Pemeriksaan (KKP), Berita Acara, dan bukti fisik pemeriksaan lapangan.
           </p>
           <div style={{ padding: '40px', border: '2px dashed #cbd5e0', borderRadius: '6px', textAlign: 'center', color: '#a0aec0', fontSize: '13px' }}>
-            Fitur unggah berkas KKP & Berita Acara Lapangan.
+            Modul pengunggahan Berita Acara & Dokumentasi Lapangan.
           </div>
         </div>
       )}
 
-      {/* ISIAN TAHAP 3: PELAPORAN & TLHP */}
+      {/* TAHAP 3: PELAPORAN & TLHP */}
       {activeStep === 3 && (
         <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <h3 style={{ marginTop: 0, color: '#38a169' }}>Tahap 3: Pelaporan (LHP) & Tindak Lanjut</h3>
           <p style={{ fontSize: '13px', color: '#4a5568' }}>
-            Manajemen Dokumen Laporan Hasil Pemeriksaan (LHP) dan pemantauan tindak lanjut rekomendasi.
+            Penyusunan Laporan Hasil Pemeriksaan (LHP) dan Pemantauan Tindak Lanjut Hasil Pemeriksaan (TLHP).
           </p>
           <div style={{ padding: '40px', border: '2px dashed #cbd5e0', borderRadius: '6px', textAlign: 'center', color: '#a0aec0', fontSize: '13px' }}>
-            Fitur unggah LHP & pemantauan status TLHP.
+            Modul LHP & Pemantauan Rekomendasi TLHP.
           </div>
         </div>
       )}
@@ -496,7 +695,6 @@ export default function DetailProgresPenugasanPage() {
 
             <form onSubmit={handleSaveEditPenugasan}>
               
-              {/* FORM INFORMASI UTAMA */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Nomor Surat Penugasan:</label>
@@ -524,7 +722,7 @@ export default function DetailProgresPenugasanPage() {
                 </div>
               </div>
 
-              {/* EDIT ANGGOTA TIM (PERSONIL) */}
+              {/* EDIT ANGGOTA TIM */}
               <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0' }}>👥 Anggota Tim Penugasan (Personil)</label>
@@ -567,7 +765,6 @@ export default function DetailProgresPenugasanPage() {
                 </div>
               </div>
 
-              {/* TOMBOL AKSI MODAL */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
                 <button type="button" onClick={() => setIsEditing(false)} style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '4px', background: '#fff', cursor: 'pointer', fontSize: '12px' }}>
                   Batal
