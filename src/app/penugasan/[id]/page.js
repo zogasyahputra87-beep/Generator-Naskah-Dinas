@@ -6,8 +6,6 @@ import Link from 'next/link';
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export default function DetailProgresPenugasanPage() {
   const params = useParams();
   const penugasanId = params?.id;
@@ -96,30 +94,35 @@ export default function DetailProgresPenugasanPage() {
     }
   };
 
-  // Helper Pengunggah API SPD
+  // Helper Request API SPD
   const fetchSPDFile = async (payload, defaultFilename) => {
-    const response = await fetch('/api/generate-spd', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const response = await fetch('/api/generate-spd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-    if (response.ok) {
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = defaultFilename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } else {
-      alert('Gagal membuat dokumen SPD.');
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = defaultFilename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        const errJson = await response.json();
+        alert(`Gagal membuat dokumen SPD: ${errJson.message || 'Error Server'}`);
+      }
+    } catch (err) {
+      alert('Gagal menghubungi server API SPD.');
     }
   };
 
-  // Unduh SPD Tunggal Lengkap (Depan + Belakang)
-  const handleDownloadSPDWord = async (personil) => {
+  // Unduh Halaman Depan per Individu
+  const handleDownloadSPDDepanSingle = async (personil) => {
     if (!detail) return;
     const namaPersonil = typeof personil === 'object' ? personil.nama : personil;
     const payloadSPD = {
@@ -135,10 +138,10 @@ export default function DetailProgresPenugasanPage() {
       tgl_spd: detail.tanggal_spd,
     };
 
-    await fetchSPDFile(payloadSPD, `SPD_Lengkap_${(namaPersonil || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`);
+    await fetchSPDFile(payloadSPD, `SPD_Depan_${(namaPersonil || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`);
   };
 
-  // 1. OPSI: Download SPD Halaman Depan Terpilih (Secara Otomatis/Multi-Download)
+  // 1. OPSI: Download SPD Halaman Depan Terpilih (Langsung 1 File Word Gabungan)
   const handleDownloadSPDDepanMassal = async () => {
     if (!detail) return;
     const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
@@ -149,13 +152,27 @@ export default function DetailProgresPenugasanPage() {
       return;
     }
 
-    for (let i = 0; i < targetPersonil.length; i++) {
-      const p = targetPersonil[i];
-      await handleDownloadSPDWord(p);
-      if (i < targetPersonil.length - 1) {
-        await delay(600);
-      }
-    }
+    const payloadSPDMassal = {
+      nomor_spd: detail.nomor_surat,
+      maksud_penugasan: detail.maksud_penugasan,
+      tempat_tujuan: detail.tempat_tujuan,
+      tanggal_surat: detail.tanggal_surat,
+      tanggal_spd: detail.tanggal_spd,
+      pegawai_spd: targetPersonil.map(p => ({
+        nomor_spd: detail.nomor_surat,
+        nama: typeof p === 'object' ? p.nama : p,
+        nip: typeof p === 'object' ? p.nip : '',
+        pangkat_gol: typeof p === 'object' ? p.pangkat_gol : '',
+        jabatan: typeof p === 'object' ? p.jabatan : '',
+        maksud_penugasan: detail.maksud_penugasan,
+        tempat_tujuan: detail.tempat_tujuan,
+        tgl_berangkat: detail.tanggal_surat,
+        tgl_kembali: detail.tanggal_surat,
+        tgl_spd: detail.tanggal_spd,
+      }))
+    };
+
+    await fetchSPDFile(payloadSPDMassal, `SPD_Depan_Gabungan_${targetPersonil.length}_Personil.docx`);
   };
 
   // 2. OPSI: Download SPD Halaman Belakang Saja (Lembar Visum)
@@ -340,8 +357,8 @@ export default function DetailProgresPenugasanPage() {
                       <span style={{ color: '#718096', fontSize: '10px' }}>{typeof p === 'object' ? p.jabatan : ''}</span>
                     </div>
                   </label>
-                  <button onClick={() => handleDownloadSPDWord(p)} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '3px 8px', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>
-                    Word
+                  <button onClick={() => handleDownloadSPDDepanSingle(p)} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '3px 8px', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>
+                    Depan
                   </button>
                 </div>
               ))}
