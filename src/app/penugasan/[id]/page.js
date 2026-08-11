@@ -15,7 +15,6 @@ export default function DetailProgresPenugasanPage() {
   const [uploading, setUploading] = useState(false);
   const [selectedPersonil, setSelectedPersonil] = useState([]);
 
-  // Fetch Data Detail Penugasan
   useEffect(() => {
     if (!penugasanId) return;
 
@@ -45,7 +44,6 @@ export default function DetailProgresPenugasanPage() {
     fetchDetailPenugasan();
   }, [penugasanId]);
 
-  // Checkbox Handler Personil
   const handleTogglePersonil = (index) => {
     if (selectedPersonil.includes(index)) {
       setSelectedPersonil(selectedPersonil.filter(i => i !== index));
@@ -63,7 +61,6 @@ export default function DetailProgresPenugasanPage() {
     }
   };
 
-  // Unduh Surat Tugas Word
   const handleDownloadSuratTugas = async () => {
     if (!detail) return;
     const payload = {
@@ -72,8 +69,7 @@ export default function DetailProgresPenugasanPage() {
       pegawai_list: Array.isArray(detail.personil) ? detail.personil : [],
       penugasan: detail.maksud_penugasan,
       tanggal: detail.tanggal_surat,
-      tampilkan_paraf: true,
-      paraf_list: Array.isArray(detail.paraf_list) ? detail.paraf_list : []
+      tempat_tujuan: detail.tempat_tujuan
     };
 
     try {
@@ -100,7 +96,6 @@ export default function DetailProgresPenugasanPage() {
     }
   };
 
-  // Helper Request API SPD
   const fetchSPDFile = async (payload, defaultFilename) => {
     try {
       const response = await fetch('/api/generate-spd', {
@@ -127,7 +122,6 @@ export default function DetailProgresPenugasanPage() {
     }
   };
 
-  // Unduh Halaman Depan Single
   const handleDownloadSPDDepanSingle = async (personil) => {
     if (!detail) return;
     const namaPersonil = typeof personil === 'object' ? (personil.nama || '') : String(personil || '');
@@ -147,7 +141,6 @@ export default function DetailProgresPenugasanPage() {
     await fetchSPDFile(payloadSPD, `SPD_Depan_${(namaPersonil || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`);
   };
 
-  // Unduh Halaman Depan Gabungan 1 File
   const handleDownloadSPDDepanMassal = async () => {
     if (!detail) return;
     const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
@@ -181,7 +174,6 @@ export default function DetailProgresPenugasanPage() {
     await fetchSPDFile(payloadSPDMassal, `SPD_Depan_Gabungan_${targetPersonil.length}_Personil.docx`);
   };
 
-  // Unduh Halaman Belakang (Visum)
   const handleDownloadSPDBelakang = async () => {
     if (!detail) return;
     const payloadVisum = {
@@ -197,7 +189,6 @@ export default function DetailProgresPenugasanPage() {
     await fetchSPDFile(payloadVisum, `SPD_Halaman_Belakang_Visum.docx`);
   };
 
-  // Google Drive ST TTD Handler
   const handleUploadSTSigned = async () => {
     const linkGDrive = prompt('Masukkan Link Google Drive Surat Tugas TTD:');
     if (!linkGDrive) return;
@@ -234,7 +225,6 @@ export default function DetailProgresPenugasanPage() {
 
   const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
   
-  // Safely resolve nama ketua tim
   let ketuaTimNama = '-';
   if (detail.ketua_tim) {
     ketuaTimNama = typeof detail.ketua_tim === 'object' ? (detail.ketua_tim.nama || '-') : String(detail.ketua_tim);
