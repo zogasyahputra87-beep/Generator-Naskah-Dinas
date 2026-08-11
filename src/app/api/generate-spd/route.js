@@ -15,22 +15,21 @@ export async function POST(request) {
   try {
     const body = await request.json();
     
-    // Tangkap daftar pegawai dari payload frontend
-    const listPegawaiInput = Array.isArray(body.pegawai_spd) 
-      ? body.pegawai_spd 
-      : (body.nama ? [body] : []);
-
-    if (listPegawaiInput.length === 0) {
-      return NextResponse.json({ success: false, message: 'Tidak ada data personil.' }, { status: 400 });
+    let templateFileName = 'template_spd_depan.docx';
+    if (body.halaman_belakang_only) {
+      templateFileName = 'template_spd_belakang.docx';
     }
 
-    const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_spd.docx');
+    const templatePath = path.join(process.cwd(), 'public', 'templates', templateFileName);
     
     let content;
     try {
       content = await fs.readFile(templatePath);
     } catch (err) {
-      return NextResponse.json({ success: false, message: 'File template_spd.docx tidak ditemukan di public/templates/' }, { status: 404 });
+      return NextResponse.json({ 
+        success: false, 
+        message: `File ${templateFileName} tidak ditemukan di public/templates/` 
+      }, { status: 404 });
     }
 
     const zip = new PizZip(content);
@@ -40,9 +39,13 @@ export async function POST(request) {
       nullGetter: () => '-' 
     });
 
-    // Petakan array data untuk di-loop oleh {#pegawai_spd} di Word
+    // Tangkap daftar pegawai (baik tunggal maupun array banyak pegawai)
+    const listPegawaiInput = Array.isArray(body.pegawai_spd) 
+      ? body.pegawai_spd 
+      : (body.nama ? [body] : []);
+
     const formattedPegawaiSPD = listPegawaiInput.map((p) => ({
-      nomor_spd: p.nomor_spd || body.nomor_surat || '-',
+      nomor_spd: p.nomor_spd || body.nomor_spd || body.nomor_surat || '-',
       nama: p.nama || '-',
       nip: p.nip || '-',
       pangkat_gol: p.pangkat_gol || '-',
@@ -56,27 +59,22 @@ export async function POST(request) {
       nip_pa: '198008012010011018'
     }));
 
-    const singlePegawai = formattedPegawaiSPD[0];
+    const singlePegawai = formattedPegawaiSPD[0] || {};
 
-    try {
-      doc.render({
-        ...singlePegawai,
-        pegawai_spd: formattedPegawaiSPD
-      });
-    } catch (renderErr) {
-      console.error('Docxtemplater Render Error:', renderErr);
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Gagal merender template Word. Periksa tag {#pegawai_spd} di file Word.',
-        errorDetail: renderErr.message || renderErr.toString() 
-      }, { status: 500 });
-    }
+    // Render data tunggal & array sekaligus
+    doc.render({
+      ...singlePegawai,
+      pegawai_spd: formattedPegawaiSPD
+    });
 
     const buf = doc.getZip().generate({ type: 'nodebuffer' });
     
-    const namaFile = listPegawaiInput.length > 1 
-      ? `SPD_Gabungan_${listPegawaiInput.length}_Personil.docx` 
-      : `SPD_${(singlePegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
+    let namaFile = `SPD_Depan_${(singlePegawai.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
+    if (listPegawaiInput.length > 1) {
+      namaFile = `SPD_Depan_Gabungan_${listPegawaiInput.length}_Personil.docx`;
+    } else if (body.halaman_belakang_only) {
+      namaFile = `SPD_Halaman_Belakang_Visum.docx`;
+    }
 
     return new NextResponse(buf, {
       status: 200,
@@ -87,7 +85,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Server Error SPD:', error);
-    return NextResponse.json({ success: false, message: 'Server Error API SPD', detail: error.toString() }, { status: 500 });
+    console.error('Error SPD Route:', error);
+    return NextResponse.json({ success: false, message: 'Gagal membuat file SPD.', detail: error.toString() }, { status: 500 });
   }
 }
