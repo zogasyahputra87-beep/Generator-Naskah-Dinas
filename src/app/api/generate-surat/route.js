@@ -8,9 +8,9 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    // 1. Path file template
+    // 1. Ambil Template Word
     const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_surat_tugas.docx');
-    
+
     if (!fs.existsSync(templatePath)) {
       return NextResponse.json({ message: 'File template_surat_tugas.docx tidak ditemukan di public/templates/' }, { status: 404 });
     }
@@ -41,10 +41,15 @@ export async function POST(req) {
       jabatan: typeof p === 'object' ? (p.jabatan || '-') : '-'
     }));
 
-    // 4. Set Data Payload
+    // 4. Set Data Payload (Termasuk Kalimat Penghubung Otomatis)
     doc.setData({
       nomor_surat: body.nomor_surat || '-',
       dasar_list: dasarListFormatted.length > 0 ? dasarListFormatted : [{ no: 1, dasar_hukum: 'Peraturan Daerah Kabupaten Malang tentang Pokok-Pokok Pengelolaan Keuangan Daerah.' }],
+      
+      // VARIABLE KALIMAT PENGHUBUNG OTOMATIS
+      kalimat_penghubung: ', dengan ini:',
+      kata_memerintahkan: 'MEMERINTAHKAN:',
+
       pegawai_list: pegawaiListFormatted.length > 0 ? pegawaiListFormatted : [{ no: 1, nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
       penugasan: body.penugasan || '-',
       tanggal: body.tanggal || '-',
@@ -66,9 +71,6 @@ export async function POST(req) {
 
   } catch (error) {
     console.error('API Generate Surat Error:', error);
-    return NextResponse.json(
-      { message: 'Gagal merender Surat Tugas', error: error.message || String(error) },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Gagal merender Surat Tugas', error: error.message }, { status: 500 });
   }
 }
