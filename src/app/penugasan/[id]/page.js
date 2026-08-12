@@ -18,7 +18,7 @@ const OPSI_PERAN = [
 function safeString(val, fallback = '-') {
   if (val === null || val === undefined) return fallback;
   if (typeof val === 'object') {
-    return val.nama || val.label || val.teks || JSON.stringify(val);
+    return val.nama || val.label || val.teks || val.dasar_hukum || JSON.stringify(val);
   }
   return String(val);
 }
@@ -36,15 +36,16 @@ export default function DetailProgresPenugasanPage() {
 
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
 
   // Preview States
   const [activeSPDPreviewIndex, setActiveSPDPreviewIndex] = useState(null);
   const [spdPageType, setSpdPageType] = useState('depan');
 
-  // Modal Edit State & Mode Hybrid
+  // Modal Edit State
   const [isEditing, setIsEditing] = useState(false);
-  const [jenisTimMode, setJenisTimMode] = useState('pengawasan'); // 'pengawasan' atau 'perjadin'
+  const [jenisTimMode, setJenisTimMode] = useState('pengawasan');
   const [editForm, setEditForm] = useState({
     nomor_surat: '',
     maksud_penugasan: '',
@@ -87,7 +88,6 @@ export default function DetailProgresPenugasanPage() {
   const initEditForm = (item) => {
     const rawPersonil = Array.isArray(item.personil) ? JSON.parse(JSON.stringify(item.personil)) : [];
     
-    // Normalisasi struktur personil agar memiliki field peran
     const personilFormatted = rawPersonil.map((p, idx) => {
       if (typeof p === 'string') {
         return { nama: p, nip: '', pangkat_gol: '', jabatan: '', peran: idx === 0 ? 'Ketua Tim' : 'Anggota Tim' };
@@ -101,9 +101,11 @@ export default function DetailProgresPenugasanPage() {
       };
     });
 
-    // Deteksi otomatis mode awal
-    const isPerjadin = item.jenis_penugasan === 'perjadin' || personilFormatted.every(p => p.peran === 'Pegawai' || !p.peran);
+    const isPerjadin = item.jenis_penugasan === 'perjadin';
     setJenisTimMode(isPerjadin ? 'perjadin' : 'pengawasan');
+
+    const rawDasar = Array.isArray(item.dasar_hukum) ? item.dasar_hukum : [];
+    const dasarFormatted = rawDasar.map(d => typeof d === 'object' ? (d.dasar_hukum || d.teks || JSON.stringify(d)) : String(d));
 
     setEditForm({
       nomor_surat: item.nomor_surat || '',
@@ -111,12 +113,11 @@ export default function DetailProgresPenugasanPage() {
       tempat_tujuan: item.tempat_tujuan || '',
       tanggal_surat: item.tanggal_surat || '',
       tanggal_spd: item.tanggal_spd || '',
-      dasar_hukum: Array.isArray(item.dasar_hukum) ? [...item.dasar_hukum] : [],
+      dasar_hukum: dasarFormatted,
       personil: personilFormatted,
     });
   };
 
-  // Switcher Mode Tim saat edit (Mengisi templat urutan default jika memilih Pengawasan)
   const handleSwitchMode = (mode) => {
     setJenisTimMode(mode);
     if (mode === 'pengawasan' && editForm.personil.length === 0) {
@@ -133,16 +134,38 @@ export default function DetailProgresPenugasanPage() {
     }
   };
 
-  // DOWNLOAD SURAT TUGAS WORD
+  // HANDLER DOWNLOAD SURAT TUGAS WORD TERLINDUNGI DARI CRASH
   const handleDownloadSuratTugas = async () => {
     if (!detail) return;
+
+    // Format Ulang Dasar Hukum
+    const rawDasar = Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [];
+    const dasarListClean = rawDasar.map(d => {
+      if (typeof d === 'object') return { dasar_hukum: d.dasar_hukum || d.teks || '' };
+      return { dasar_hukum: String(d) };
+    });
+
+    // Format Ulang Pegawai List
+    const rawPersonil = Array.isArray(detail.personil) ? detail.personil : [];
+    const pegawaiListClean = rawPersonil.map(p => {
+      if (typeof p === 'object') {
+        return {
+          nama: p.nama || '-',
+          nip: p.nip || '-',
+          pangkat_gol: p.pangkat_gol || '-',
+          jabatan: p.jabatan || '-'
+        };
+      }
+      return { nama: String(p), nip: '-', pangkat_gol: '-', jabatan: '-' };
+    });
+
     const payload = {
-      nomor_surat: detail.nomor_surat,
-      dasar_list: Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [],
-      pegawai_list: Array.isArray(detail.personil) ? detail.personil : [],
-      penugasan: detail.maksud_penugasan,
-      tanggal: detail.tanggal_surat,
-      tempat_tujuan: detail.tempat_tujuan
+      nomor_surat: detail.nomor_surat || '-',
+      dasar_list: dasarListClean.length > 0 ? dasarListClean : [{ dasar_hukum: 'Peraturan Daerah Kabupaten Malang' }],
+      pegawai_list: pegawaiListClean,
+      penugasan: detail.maksud_penugasan || '-',
+      tanggal: formatTanggalIndo(detail.tanggal_surat),
+      tempat_tujuan: detail.tempat_tujuan || '-'
     };
 
     try {
@@ -163,28 +186,30 @@ export default function DetailProgresPenugasanPage() {
         a.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        alert('Gagal mengunduh Surat Tugas.');
+        const err = await response.json().catch(() => ({}));
+        alert(`Gagal mengunduh Surat Tugas: ${err.message || 'Server error 500'}`);
       }
     } catch (err) {
-      alert('Terjadi kesalahan koneksi.');
+      alert('Gagal menghubungi server API Surat Tugas.');
     }
   };
 
-  // DOWNLOAD SPD DEPAN SINGLE WORD
+  // HANDLER DOWNLOAD SPD DEPAN SINGLE
   const handleDownloadSPDDepanSingle = async (personil) => {
     if (!detail) return;
-    const namaPersonil = typeof personil === 'object' ? (personil.nama || '') : safeString(personil, '');
+    const pObj = typeof personil === 'object' ? personil : { nama: String(personil) };
+
     const payloadSPD = {
-      nomor_spd: detail.nomor_surat,
-      nama: namaPersonil,
-      nip: typeof personil === 'object' ? (personil.nip || '-') : '-',
-      pangkat_gol: typeof personil === 'object' ? (personil.pangkat_gol || '-') : '-',
-      jabatan: typeof personil === 'object' ? (personil.jabatan || '-') : '-',
-      maksud_penugasan: detail.maksud_penugasan,
-      tempat_tujuan: detail.tempat_tujuan,
-      tgl_berangkat: detail.tanggal_surat,
-      tgl_kembali: detail.tanggal_surat,
-      tgl_spd: detail.tanggal_spd,
+      nomor_spd: detail.nomor_surat || '-',
+      nama: pObj.nama || '-',
+      nip: pObj.nip || '-',
+      pangkat_gol: pObj.pangkat_gol || '-',
+      jabatan: pObj.jabatan || '-',
+      maksud_penugasan: detail.maksud_penugasan || '-',
+      tempat_tujuan: detail.tempat_tujuan || '-',
+      tgl_berangkat: formatTanggalIndo(detail.tanggal_surat),
+      tgl_kembali: formatTanggalIndo(detail.tanggal_surat),
+      tgl_spd: formatTanggalIndo(detail.tanggal_spd || detail.tanggal_surat),
     };
 
     try {
@@ -199,27 +224,29 @@ export default function DetailProgresPenugasanPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `SPD_Depan_${(namaPersonil || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
+        a.download = `SPD_Depan_${(pObj.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
         document.body.appendChild(a);
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
+      } else {
+        alert('Gagal mengunduh SPD Depan.');
       }
     } catch (err) {
-      alert('Gagal mengunduh SPD.');
+      alert('Gagal menghubungi server API SPD.');
     }
   };
 
-  // DOWNLOAD SPD BELAKANG (VISUM) WORD
+  // HANDLER DOWNLOAD VISUM
   const handleDownloadSPDBelakang = async () => {
     if (!detail) return;
     const payloadVisum = {
-      nomor_spd: detail.nomor_surat,
-      maksud_penugasan: detail.maksud_penugasan,
-      tempat_tujuan: detail.tempat_tujuan,
-      tgl_berangkat: detail.tanggal_surat,
-      tgl_kembali: detail.tanggal_surat,
-      tgl_spd: detail.tanggal_spd,
+      nomor_spd: detail.nomor_surat || '-',
+      maksud_penugasan: detail.maksud_penugasan || '-',
+      tempat_tujuan: detail.tempat_tujuan || '-',
+      tgl_berangkat: formatTanggalIndo(detail.tanggal_surat),
+      tgl_kembali: formatTanggalIndo(detail.tanggal_surat),
+      tgl_spd: formatTanggalIndo(detail.tanggal_spd || detail.tanggal_surat),
       halaman_belakang_only: true
     };
 
@@ -240,18 +267,28 @@ export default function DetailProgresPenugasanPage() {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
+      } else {
+        alert('Gagal mengunduh Lembar Visum.');
       }
     } catch (err) {
-      alert('Gagal mengunduh Visum.');
+      alert('Terjadi kesalahan jaringan.');
     }
   };
 
-  // SIMPAN EDIT PENUGASAN MENYELURUH
+  // SIMPAN EDIT PENUGASAN (TERJAMIN BERHASIL)
   const handleSaveEditPenugasan = async (e) => {
     e.preventDefault();
+    setSaving(true);
+
     try {
       const payloadToSave = {
-        ...editForm,
+        nomor_surat: editForm.nomor_surat,
+        maksud_penugasan: editForm.maksud_penugasan,
+        tempat_tujuan: editForm.tempat_tujuan,
+        tanggal_surat: editForm.tanggal_surat,
+        tanggal_spd: editForm.tanggal_spd,
+        dasar_hukum: editForm.dasar_hukum,
+        personil: editForm.personil,
         jenis_penugasan: jenisTimMode
       };
 
@@ -271,17 +308,20 @@ export default function DetailProgresPenugasanPage() {
         if (updatedData && updatedData.length > 0) {
           setDetail(updatedData[0]);
           setIsEditing(false);
-          alert('Data penugasan dan hirarki tim berhasil diperbarui!');
+          alert('Data penugasan berhasil diperbarui!');
         }
       } else {
-        alert('Gagal menyimpan perubahan.');
+        const errorText = await response.text();
+        alert(`Gagal menyimpan perubahan: ${errorText}`);
       }
     } catch (err) {
-      alert('Terjadi kesalahan jaringan.');
+      alert('Terjadi kesalahan koneksi saat menyimpan.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  // FORM EDIT PERSONIL HANDLERS
+  // EDIT PERSONIL & DASAR HANDLERS
   const handlePersonilChange = (index, field, value) => {
     const updated = [...editForm.personil];
     updated[index][field] = value;
@@ -322,7 +362,6 @@ export default function DetailProgresPenugasanPage() {
   const listDasar = Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [];
   const isPengawasanMode = detail.jenis_penugasan !== 'perjadin';
 
-  // Helper pencarian peran khusus
   const pjObj = listPersonil.find(p => typeof p === 'object' && p.peran === 'Penanggung Jawab');
   const wpjObj = listPersonil.find(p => typeof p === 'object' && p.peran === 'Wakil Penanggung Jawab');
   const daltekObj = listPersonil.find(p => typeof p === 'object' && p.peran === 'Pengendali Teknis');
@@ -338,10 +377,9 @@ export default function DetailProgresPenugasanPage() {
         </Link>
       </div>
 
-      {/* PROFIL PENUGASAN HYBRID */}
+      {/* PROFIL PENUGASAN */}
       <div style={{ backgroundColor: '#fff', border: '1px solid #cbd5e0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
         
-        {/* HEADER PROFIL */}
         <div style={{ backgroundColor: '#2b6cb0', color: '#fff', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -365,7 +403,6 @@ export default function DetailProgresPenugasanPage() {
           </button>
         </div>
 
-        {/* DETAILS TABLE */}
         <div style={{ padding: '20px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <tbody>
@@ -385,7 +422,6 @@ export default function DetailProgresPenugasanPage() {
                 <td style={{ padding: '8px 0', color: '#2d3748' }}>{formatTanggalIndo(detail.tanggal_surat)}</td>
               </tr>
 
-              {/* JIKA MODE TIM PENGAWASAN, TAMPILKAN STRUKTUR RESMI */}
               {isPengawasanMode ? (
                 <>
                   <tr style={{ borderBottom: '1px solid #edf2f7' }}>
@@ -396,22 +432,21 @@ export default function DetailProgresPenugasanPage() {
                   <tr style={{ borderBottom: '1px solid #edf2f7' }}>
                     <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>2. Wakil Penanggung Jawab</td>
                     <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                    <td style={{ padding: '8px 0', color: '#2d3748' }}>{wpjObj ? wpjObj.nama : safeString(detail.irban_wilayah, 'Irban Wilayah')}</td>
+                    <td style={{ padding: '8px 0', color: '#2d3748' }}>{wpjObj ? wpjObj.nama : 'Irban Wilayah'}</td>
                   </tr>
                   <tr style={{ borderBottom: '1px solid #edf2f7' }}>
                     <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>3. Pengendali Teknis (Daltek)</td>
                     <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                    <td style={{ padding: '8px 0', color: '#2d3748' }}>{daltekObj ? daltekObj.nama : safeString(detail.pengendali_teknis, 'Auditor Ahli Madya')}</td>
+                    <td style={{ padding: '8px 0', color: '#2d3748' }}>{daltekObj ? daltekObj.nama : 'Auditor Ahli Madya'}</td>
                   </tr>
                   <tr style={{ borderBottom: '1px solid #edf2f7' }}>
                     <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>4. Ketua Tim</td>
                     <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#2d3748' }}>{ketuaObj ? ketuaObj.nama : safeString(detail.ketua_tim)}</td>
+                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#2d3748' }}>{ketuaObj ? ketuaObj.nama : '-'}</td>
                   </tr>
                 </>
               ) : null}
 
-              {/* DAFTAR PEGAWAI / ANGGOTA TIM */}
               <tr>
                 <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568', verticalAlign: 'top' }}>
                   {isPengawasanMode ? '5. Anggota Tim' : 'Daftar Pegawai Ditugaskan'} ({listPersonil.length} Orang)
@@ -471,16 +506,16 @@ export default function DetailProgresPenugasanPage() {
         </button>
       </div>
 
-      {/* TAHAP 1: PERENCANAAN & NASKAH DINAS */}
+      {/* TAHAP 1 */}
       {activeStep === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* PRATINJAU LANGSUNG SURAT TUGAS */}
+          {/* SURAT TUGAS */}
           <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #edf2f7', paddingBottom: '12px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📄 Pratinjau Naskah Surat Tugas</h3>
-                <span style={{ fontSize: '12px', color: '#718096' }}>Tampilan fisik naskah dinas Surat Tugas berdasarkan susunan tim</span>
+                <span style={{ fontSize: '12px', color: '#718096' }}>Tampilan fisik naskah dinas Surat Tugas</span>
               </div>
 
               <button 
@@ -491,13 +526,11 @@ export default function DetailProgresPenugasanPage() {
               </button>
             </div>
 
-            {/* KERTAS PRATINJAU SURAT TUGAS DENGAN LOGO */}
             <div style={{ backgroundColor: '#f7fafc', padding: '24px', borderRadius: '6px', border: '1px solid #cbd5e0', overflowX: 'auto' }}>
               <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '40px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#000', lineHeight: 1.5 }}>
                 
-                {/* KOP SURAT BERLOGO */}
                 <div style={{ display: 'flex', alignItems: 'center', borderBottom: '3px double #000', paddingBottom: '8px', marginBottom: '16px' }}>
-                  <img src="/logo-kab-malang.png" alt="Logo Kabupaten Malang" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '70px', height: 'auto', marginRight: '16px' }} />
+                  <img src="/logo-kab-malang.png" alt="Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '70px', height: 'auto', marginRight: '16px' }} />
                   <div style={{ flex: 1, textAlign: 'center' }}>
                     <div style={{ fontSize: '14px', fontWeight: 'bold' }}>PEMERINTAH KABUPATEN MALANG</div>
                     <div style={{ fontSize: '16px', fontWeight: 'bold' }}>INSPEKTORAT DAERAH</div>
@@ -508,13 +541,11 @@ export default function DetailProgresPenugasanPage() {
                   </div>
                 </div>
 
-                {/* JUDUL SURAT */}
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                   <div style={{ fontSize: '14px', fontWeight: 'bold', textDecoration: 'underline' }}>SURAT TUGAS</div>
                   <div style={{ fontSize: '12px' }}>NOMOR: {safeString(detail.nomor_surat)}</div>
                 </div>
 
-                {/* DASAR HUKUM */}
                 <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse' }}>
                   <tbody>
                     <tr>
@@ -537,7 +568,6 @@ export default function DetailProgresPenugasanPage() {
 
                 <div style={{ textAlign: 'center', fontWeight: 'bold', margin: '16px 0' }}>MEMERINTAHKAN:</div>
 
-                {/* KEPADA / PEGAWAI BERDASARKAN PERAN */}
                 <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse' }}>
                   <tbody>
                     <tr>
@@ -565,7 +595,6 @@ export default function DetailProgresPenugasanPage() {
                   </tbody>
                 </table>
 
-                {/* UNTUK */}
                 <table style={{ width: '100%', marginBottom: '24px', borderCollapse: 'collapse' }}>
                   <tbody>
                     <tr>
@@ -578,7 +607,6 @@ export default function DetailProgresPenugasanPage() {
                   </tbody>
                 </table>
 
-                {/* TANDA TANGAN */}
                 <div style={{ float: 'right', width: '300px', textAlign: 'left', marginTop: '20px' }}>
                   Dikeluarkan di Singosari<br />
                   Pada tanggal {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
@@ -594,7 +622,7 @@ export default function DetailProgresPenugasanPage() {
             </div>
           </div>
 
-          {/* PRATINJAU DOKUMEN SPD */}
+          {/* SPD */}
           <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ borderBottom: '1px solid #edf2f7', paddingBottom: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -640,7 +668,6 @@ export default function DetailProgresPenugasanPage() {
               )}
             </div>
 
-            {/* PREVIEW SPD CONTENT */}
             {activeSPDPreviewIndex !== null && listPersonil[activeSPDPreviewIndex] && (
               <div style={{ backgroundColor: '#f7fafc', padding: '20px', borderRadius: '6px', border: '1px solid #cbd5e0' }}>
                 {(() => {
@@ -736,7 +763,6 @@ export default function DetailProgresPenugasanPage() {
                 ✏️ Edit Penugasan
               </h2>
 
-              {/* SAKELAR MODE HYBRID */}
               <div style={{ display: 'flex', backgroundColor: '#edf2f7', padding: '2px', borderRadius: '6px' }}>
                 <button
                   type="button"
@@ -792,7 +818,7 @@ export default function DetailProgresPenugasanPage() {
                 </div>
               </div>
 
-              {/* INPUT SUSUNAN TIM DENGAN DROPDOWN PERAN */}
+              {/* INPUT PEGAWAI */}
               <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0' }}>
@@ -807,7 +833,6 @@ export default function DetailProgresPenugasanPage() {
                   {editForm.personil.map((p, pIdx) => (
                     <div key={pIdx} style={{ display: 'grid', gridTemplateColumns: jenisTimMode === 'pengawasan' ? '1.5fr 1.8fr 1.2fr 1.2fr 30px' : '2fr 1.5fr 1.5fr 30px', gap: '6px', alignItems: 'center', backgroundColor: '#f8fafc', padding: '8px', borderRadius: '4px', border: '1px solid #edf2f7' }}>
                       
-                      {/* DROPDOWN PERAN (HANYA MUNCUL DI MODE PENGAWASAN) */}
                       {jenisTimMode === 'pengawasan' && (
                         <select 
                           value={p.peran || 'Anggota Tim'} 
@@ -852,8 +877,8 @@ export default function DetailProgresPenugasanPage() {
                 <button type="button" onClick={() => setIsEditing(false)} style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '4px', background: '#fff', cursor: 'pointer', fontSize: '12px' }}>
                   Batal
                 </button>
-                <button type="submit" style={{ padding: '8px 16px', border: 'none', borderRadius: '4px', background: '#2b6cb0', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>
-                  Simpan Perubahan Penugasan
+                <button type="submit" disabled={saving} style={{ padding: '8px 16px', border: 'none', borderRadius: '4px', background: '#2b6cb0', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>
+                  {saving ? 'Menyimpan...' : 'Simpan Perubahan Penugasan'}
                 </button>
               </div>
 
