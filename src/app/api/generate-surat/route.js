@@ -1,101 +1,74 @@
 import { NextResponse } from 'next/server';
 import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
+import fs from 'fs';
 import path from 'path';
-import fs from 'fs/promises';
 
-function formatTanggalIndo(tanggalStr) {
-  if (!tanggalStr) return '-';
-  const opsi = { day: 'numeric', month: 'long', year: 'numeric' };
-  const date = new Date(tanggalStr);
-  return isNaN(date.getTime()) ? tanggalStr : date.toLocaleDateString('id-ID', opsi);
-}
-
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
+    const body = await req.json();
 
-    let templateFileName = 'template_surat_tugas.docx';
-    let templatePath = path.join(process.cwd(), 'public', 'templates', templateFileName);
+    // 1. Path file template
+    const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_surat_tugas.docx');
     
-    let content;
-    try {
-      content = await fs.readFile(templatePath);
-    } catch (err) {
-      try {
-        templateFileName = 'template_surat.docx';
-        templatePath = path.join(process.cwd(), 'public', 'templates', templateFileName);
-        content = await fs.readFile(templatePath);
-      } catch (fallbackErr) {
-        return NextResponse.json({ 
-          success: false, 
-          message: 'File template Surat Tugas tidak ditemukan di public/templates/' 
-        }, { status: 404 });
-      }
+    if (!fs.existsSync(templatePath)) {
+      return NextResponse.json({ message: 'File template_surat_tugas.docx tidak ditemukan di public/templates/' }, { status: 404 });
     }
 
+    const content = fs.readFileSync(templatePath, 'binary');
     const zip = new PizZip(content);
-    const doc = new Docxtemplater(zip, { 
-      paragraphLoop: true, 
+
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
       linebreaks: true,
-      nullGetter: () => '-' 
+      delimiters: { start: '{', end: '}' }
     });
 
-    // Format array dasar hukum
+    // 2. Normalisasi Dasar Hukum (Tambahkan 'no' eksplisit)
     const rawDasar = Array.isArray(body.dasar_list) ? body.dasar_list : [];
-    const formattedDasarList = rawDasar.map((d, index) => {
-      let teksDasar = '-';
-      if (typeof d === 'string') {
-        teksDasar = d;
-      } else if (typeof d === 'object' && d !== null) {
-        teksDasar = d.dasar || d.teks || d.nama || d.isi_dasar || Object.values(d)[0] || '-';
-      }
-      return {
-        no: index + 1,
-        dasar: teksDasar
-      };
-    });
+    const dasarListFormatted = rawDasar.map((d, idx) => ({
+      no: idx + 1,
+      dasar_hukum: typeof d === 'object' ? (d.dasar_hukum || d.teks || '-') : String(d || '-')
+    }));
 
-    // Format array pegawai
+    // 3. Normalisasi Pegawai List (Tambahkan 'no' eksplisit)
     const rawPegawai = Array.isArray(body.pegawai_list) ? body.pegawai_list : [];
-    const formattedPegawaiList = rawPegawai.map((p, index) => ({
-      no: index + 1,
-      nama: typeof p === 'object' ? (p.nama || '-') : String(p),
+    const pegawaiListFormatted = rawPegawai.map((p, idx) => ({
+      no: idx + 1,
+      nama: typeof p === 'object' ? (p.nama || '-') : String(p || '-'),
       nip: typeof p === 'object' ? (p.nip || '-') : '-',
       pangkat_gol: typeof p === 'object' ? (p.pangkat_gol || '-') : '-',
       jabatan: typeof p === 'object' ? (p.jabatan || '-') : '-'
     }));
 
-    const payloadData = {
-      nomor_surat: body.nomor_surat || body.nomor_penugasan || '-',
-      penugasan: body.penugasan || body.maksud_penugasan || '-',
-      tempat_tujuan: body.tempat_tujuan || '-',
-      tanggal: formatTanggalIndo(body.tanggal || body.tanggal_surat),
-      dasar_list: formattedDasarList,
-      pegawai_list: formattedPegawaiList,
-      tampilkan_paraf: true,
-      paraf_list: Array.isArray(body.paraf_list) ? body.paraf_list : []
-    };
+    // 4. Set Data Payload
+    doc.setData({
+      nomor_surat: body.nomor_surat || '-',
+      dasar_list: dasarListFormatted.length > 0 ? dasarListFormatted : [{ no: 1, dasar_hukum: 'Peraturan Daerah Kabupaten Malang tentang Pokok-Pokok Pengelolaan Keuangan Daerah.' }],
+      pegawai_list: pegawaiListFormatted.length > 0 ? pegawaiListFormatted : [{ no: 1, nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
+      penugasan: body.penugasan || '-',
+      tanggal: body.tanggal || '-',
+      tempat_tujuan: body.tempat_tujuan || '-'
+    });
 
-    doc.render(payloadData);
+    // 5. Render
+    doc.render();
 
     const buf = doc.getZip().generate({ type: 'nodebuffer' });
-    const namaFile = `Surat_Tugas_${(payloadData.nomor_surat || 'ST').replace(/[\/\s]+/g, '_')}.docx`;
 
     return new NextResponse(buf, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'Content-Disposition': `attachment; filename="${namaFile}"`,
-      },
+        'Content-Disposition': `attachment; filename=Surat_Tugas.docx`
+      }
     });
 
   } catch (error) {
-    console.error('Error Surat Tugas API:', error);
-    return NextResponse.json({ 
-      success: false, 
-      message: 'Gagal merender Surat Tugas.', 
-      detail: error.toString() 
-    }, { status: 500 });
+    console.error('API Generate Surat Error:', error);
+    return NextResponse.json(
+      { message: 'Gagal merender Surat Tugas', error: error.message || String(error) },
+      { status: 500 }
+    );
   }
 }
