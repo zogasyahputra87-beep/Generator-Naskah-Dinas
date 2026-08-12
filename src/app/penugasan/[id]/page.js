@@ -6,15 +6,6 @@ import Link from 'next/link';
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
-const OPSI_PERAN = [
-  'Penanggung Jawab',
-  'Wakil Penanggung Jawab',
-  'Pengendali Teknis',
-  'Ketua Tim',
-  'Anggota Tim',
-  'Pegawai'
-];
-
 function safeString(val, fallback = '-') {
   if (val === null || val === undefined) return fallback;
   if (typeof val === 'object') {
@@ -43,13 +34,27 @@ export default function DetailProgresPenugasanPage() {
   const [saving, setSaving] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
 
-  // Preview States
-  const [activeSPDPreviewIndex, setActiveSPDPreviewIndex] = useState(null);
+  // Preview & Console SPD States
+  const [activeSPDPreviewIndex, setActiveSPDPreviewIndex] = useState(0);
   const [spdPageType, setSpdPageType] = useState('depan');
+  const [showSPDConsole, setShowSPDConsole] = useState(false);
 
-  // Modal Edit State
+  // Console State Khusus Isian SPD (Default: Inspektorat Daerah Kab. Malang)
+  const [spdForm, setSpdForm] = useState({
+    nomor_spd: '',
+    pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
+    nip_pa: '198008012010011018',
+    tempat_berangkat: 'Inspektorat Daerah Kab. Malang',
+    tempat_tujuan: '',
+    tempat_kembali: 'Inspektorat Daerah Kab. Malang',
+    tgl_spd: '',
+    tgl_berangkat: '',
+    tgl_kembali: '',
+    personil_spd: []
+  });
+
+  // Modal Edit General Penugasan
   const [isEditing, setIsEditing] = useState(false);
-  const [jenisTimMode, setJenisTimMode] = useState('pengawasan');
   const [editForm, setEditForm] = useState({
     nomor_surat: '',
     maksud_penugasan: '',
@@ -77,9 +82,7 @@ export default function DetailProgresPenugasanPage() {
           if (Array.isArray(data) && data.length > 0) {
             const item = data[0];
             setDetail(item);
-            initEditForm(item);
-          } else {
-            setDetail(null);
+            initForms(item);
           }
         }
       } catch (err) {
@@ -92,10 +95,12 @@ export default function DetailProgresPenugasanPage() {
     fetchDetailPenugasan();
   }, [penugasanId]);
 
-  const initEditForm = (item) => {
+  const initForms = (item) => {
     if (!item) return;
+
     const rawPersonil = Array.isArray(item.personil) ? JSON.parse(JSON.stringify(item.personil)) : [];
     
+    // Normalisasi Personil
     const personilFormatted = rawPersonil.map((p, idx) => {
       if (typeof p === 'string') {
         return { nama: p, nip: '', pangkat_gol: '', jabatan: '', peran: idx === 0 ? 'Ketua Tim' : 'Anggota Tim' };
@@ -109,36 +114,79 @@ export default function DetailProgresPenugasanPage() {
       };
     });
 
-    const isPerjadin = item.jenis_penugasan === 'perjadin';
-    setJenisTimMode(isPerjadin ? 'perjadin' : 'pengawasan');
-
     const rawDasar = Array.isArray(item.dasar_hukum) ? item.dasar_hukum : [];
     const dasarFormatted = rawDasar.map(d => typeof d === 'object' ? (d?.dasar_hukum || d?.teks || JSON.stringify(d)) : String(d || ''));
 
+    // Init Form Edit Utama
     setEditForm({
       nomor_surat: item.nomor_surat || '',
       maksud_penugasan: item.maksud_penugasan || '',
       tempat_tujuan: item.tempat_tujuan || '',
       tanggal_surat: item.tanggal_surat || '',
-      tanggal_spd: item.tanggal_spd || '',
+      tanggal_spd: item.tanggal_spd || item.tanggal_surat || '',
       dasar_hukum: dasarFormatted,
       personil: personilFormatted,
     });
+
+    // Init Form Console SPD dengan Default "Inspektorat Daerah Kab. Malang"
+    const personilSpdFormatted = personilFormatted.map((p) => ({
+      ...p,
+      no_spd_khusus: item.nomor_surat || '',
+      tingkat_biaya: 'Tingkat C',
+      alat_angkut: 'Kendaraan Dinas / Umum'
+    }));
+
+    setSpdForm({
+      nomor_spd: item.nomor_surat || '',
+      pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
+      nip_pa: '198008012010011018',
+      tempat_berangkat: item.tempat_berangkat || 'Inspektorat Daerah Kab. Malang',
+      tempat_tujuan: item.tempat_tujuan || '',
+      tempat_kembali: item.tempat_kembali || 'Inspektorat Daerah Kab. Malang',
+      tgl_spd: item.tanggal_spd || item.tanggal_surat || '',
+      tgl_berangkat: item.tanggal_surat || '',
+      tgl_kembali: item.tanggal_surat || '',
+      personil_spd: personilSpdFormatted
+    });
   };
 
-  const handleSwitchMode = (mode) => {
-    setJenisTimMode(mode);
-    if (mode === 'pengawasan' && editForm.personil.length === 0) {
-      setEditForm(prev => ({
-        ...prev,
-        personil: [
-          { nama: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.', nip: '198008012010011018', pangkat_gol: 'Pembina Utama Muda', jabatan: 'Inspektur Daerah', peran: 'Penanggung Jawab' },
-          { nama: '', nip: '', pangkat_gol: '', jabatan: 'Irban Wilayah I', peran: 'Wakil Penanggung Jawab' },
-          { nama: '', nip: '', pangkat_gol: '', jabatan: 'Auditor Ahli Madya', peran: 'Pengendali Teknis' },
-          { nama: '', nip: '', pangkat_gol: '', jabatan: 'Auditor Ahli Muda', peran: 'Ketua Tim' },
-          { nama: '', nip: '', pangkat_gol: '', jabatan: 'Auditor Ahli Pertama', peran: 'Anggota Tim' }
-        ]
-      }));
+  // HANDLER SIMPAN CONSOLE SPD KHUSUS
+  const handleSaveSPDConsole = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payloadToSave = {
+        tanggal_spd: spdForm.tgl_spd,
+        tempat_berangkat: spdForm.tempat_berangkat,
+        tempat_kembali: spdForm.tempat_kembali,
+        personil: spdForm.personil_spd
+      };
+
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(payloadToSave)
+      });
+
+      if (response.ok) {
+        const updated = await response.json();
+        if (Array.isArray(updated) && updated.length > 0) {
+          setDetail(updated[0]);
+          setShowSPDConsole(false);
+          alert('Konfigurasi Isian SPD Berhasil Diperbarui!');
+        }
+      } else {
+        alert('Gagal menyimpan variabel SPD.');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan jaringan.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -147,19 +195,23 @@ export default function DetailProgresPenugasanPage() {
     if (!detail) return;
 
     const rawDasar = Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [];
-    const dasarListClean = rawDasar.map(d => typeof d === 'object' ? (d?.dasar_hukum || d?.teks || '-') : String(d || '-'));
+    const dasarListClean = rawDasar.map((d, idx) => ({
+      no: idx + 1,
+      dasar_hukum: typeof d === 'object' ? (d?.dasar_hukum || d?.teks || '-') : String(d || '-')
+    }));
 
     const rawPersonil = Array.isArray(detail.personil) ? detail.personil : [];
-    const pegawaiListClean = rawPersonil.map(p => {
+    const pegawaiListClean = rawPersonil.map((p, idx) => {
       if (typeof p === 'object') {
         return {
+          no: idx + 1,
           nama: p?.nama || '-',
           nip: p?.nip || '-',
           pangkat_gol: p?.pangkat_gol || '-',
           jabatan: p?.jabatan || '-'
         };
       }
-      return { nama: String(p || '-'), nip: '-', pangkat_gol: '-', jabatan: '-' };
+      return { no: idx + 1, nama: String(p || '-'), nip: '-', pangkat_gol: '-', jabatan: '-' };
     });
 
     const payload = {
@@ -189,30 +241,32 @@ export default function DetailProgresPenugasanPage() {
         a.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        const errJson = await response.json().catch(() => ({}));
-        alert(`Gagal mengunduh Surat Tugas: ${errJson.message || 'Error pada server backend (500)'}`);
+        alert('Gagal mengunduh Surat Tugas. Cek log server.');
       }
     } catch (err) {
-      alert('Terjadi kesalahan koneksi saat mengunduh Surat Tugas.');
+      alert('Terjadi kesalahan koneksi.');
     }
   };
 
   // HANDLER DOWNLOAD SPD DEPAN SINGLE
-  const handleDownloadSPDDepanSingle = async (personil) => {
+  const handleDownloadSPDDepanSingle = async (personilObj) => {
     if (!detail) return;
-    const pObj = typeof personil === 'object' ? personil : { nama: String(personil || '') };
 
     const payloadSPD = {
-      nomor_spd: detail.nomor_surat || '-',
-      nama: pObj?.nama || '-',
-      nip: pObj?.nip || '-',
-      pangkat_gol: pObj?.pangkat_gol || '-',
-      jabatan: pObj?.jabatan || '-',
+      nomor_spd: personilObj?.no_spd_khusus || spdForm.nomor_spd || detail.nomor_surat || '-',
+      nama: personilObj?.nama || '-',
+      nip: personilObj?.nip || '-',
+      pangkat_gol: personilObj?.pangkat_gol || '-',
+      jabatan: personilObj?.jabatan || '-',
       maksud_penugasan: detail.maksud_penugasan || '-',
-      tempat_tujuan: detail.tempat_tujuan || '-',
-      tgl_berangkat: formatTanggalIndo(detail.tanggal_surat),
-      tgl_kembali: formatTanggalIndo(detail.tanggal_surat),
-      tgl_spd: formatTanggalIndo(detail.tanggal_spd || detail.tanggal_surat),
+      tempat_berangkat: spdForm.tempat_berangkat,
+      tempat_tujuan: spdForm.tempat_tujuan || detail.tempat_tujuan || '-',
+      tempat_kembali: spdForm.tempat_kembali,
+      tgl_berangkat: formatTanggalIndo(spdForm.tgl_berangkat || detail.tanggal_surat),
+      tgl_kembali: formatTanggalIndo(spdForm.tgl_kembali || detail.tanggal_surat),
+      tgl_spd: formatTanggalIndo(spdForm.tgl_spd || detail.tanggal_spd || detail.tanggal_surat),
+      pengguna_anggaran: spdForm.pengguna_anggaran,
+      nip_pa: spdForm.nip_pa
     };
 
     try {
@@ -227,7 +281,7 @@ export default function DetailProgresPenugasanPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `SPD_Depan_${(pObj?.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
+        a.download = `SPD_Depan_${(personilObj?.nama || 'Pegawai').replace(/[\/\s]+/g, '_')}.docx`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -244,12 +298,16 @@ export default function DetailProgresPenugasanPage() {
   const handleDownloadSPDBelakang = async () => {
     if (!detail) return;
     const payloadVisum = {
-      nomor_spd: detail.nomor_surat || '-',
+      nomor_spd: spdForm.nomor_spd || detail.nomor_surat || '-',
       maksud_penugasan: detail.maksud_penugasan || '-',
-      tempat_tujuan: detail.tempat_tujuan || '-',
-      tgl_berangkat: formatTanggalIndo(detail.tanggal_surat),
-      tgl_kembali: formatTanggalIndo(detail.tanggal_surat),
-      tgl_spd: formatTanggalIndo(detail.tanggal_spd || detail.tanggal_surat),
+      tempat_berangkat: spdForm.tempat_berangkat,
+      tempat_tujuan: spdForm.tempat_tujuan || detail.tempat_tujuan || '-',
+      tempat_kembali: spdForm.tempat_kembali,
+      tgl_berangkat: formatTanggalIndo(spdForm.tgl_berangkat || detail.tanggal_surat),
+      tgl_kembali: formatTanggalIndo(spdForm.tgl_kembali || detail.tanggal_surat),
+      tgl_spd: formatTanggalIndo(spdForm.tgl_spd || detail.tanggal_spd || detail.tanggal_surat),
+      pengguna_anggaran: spdForm.pengguna_anggaran,
+      nip_pa: spdForm.nip_pa,
       halaman_belakang_only: true
     };
 
@@ -278,100 +336,11 @@ export default function DetailProgresPenugasanPage() {
     }
   };
 
-  // SIMPAN EDIT PENUGASAN
-  const handleSaveEditPenugasan = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-
-    try {
-      const payloadToSave = {
-        nomor_surat: editForm.nomor_surat,
-        maksud_penugasan: editForm.maksud_penugasan,
-        tempat_tujuan: editForm.tempat_tujuan,
-        tanggal_surat: editForm.tanggal_surat,
-        tanggal_spd: editForm.tanggal_spd,
-        dasar_hukum: editForm.dasar_hukum,
-        personil: editForm.personil,
-      };
-
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${penugasanId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify(payloadToSave)
-      });
-
-      if (response.ok) {
-        const updatedData = await response.json();
-        if (Array.isArray(updatedData) && updatedData.length > 0) {
-          setDetail({
-            ...updatedData[0],
-            jenis_penugasan: jenisTimMode
-          });
-          setIsEditing(false);
-          alert('Data penugasan berhasil diperbarui!');
-        }
-      } else {
-        const errorText = await response.text();
-        alert(`Gagal menyimpan perubahan: ${errorText}`);
-      }
-    } catch (err) {
-      alert('Terjadi kesalahan koneksi saat menyimpan.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handlePersonilChange = (index, field, value) => {
-    const updated = [...editForm.personil];
-    if (updated[index]) {
-      updated[index][field] = value;
-      setEditForm({ ...editForm, personil: updated });
-    }
-  };
-
-  const handleAddPersonil = (peranDefault = 'Anggota Tim') => {
-    setEditForm({
-      ...editForm,
-      personil: [...editForm.personil, { nama: '', nip: '', pangkat_gol: '', jabatan: '', peran: peranDefault }]
-    });
-  };
-
-  const handleRemovePersonil = (index) => {
-    const updated = editForm.personil.filter((_, idx) => idx !== index);
-    setEditForm({ ...editForm, personil: updated });
-  };
-
-  const handleDasarChange = (index, value) => {
-    const updated = [...editForm.dasar_hukum];
-    updated[index] = value;
-    setEditForm({ ...editForm, dasar_hukum: updated });
-  };
-
-  const handleAddDasar = () => {
-    setEditForm({ ...editForm, dasar_hukum: [...editForm.dasar_hukum, ''] });
-  };
-
-  const handleRemoveDasar = (index) => {
-    const updated = editForm.dasar_hukum.filter((_, idx) => idx !== index);
-    setEditForm({ ...editForm, dasar_hukum: updated });
-  };
-
-  if (loading) return <div style={{ padding: '60px', textAlign: 'center', fontFamily: 'sans-serif', color: '#4a5568' }}>Memuat detail penugasan...</div>;
-  if (!detail) return <div style={{ padding: '60px', textAlign: 'center', fontFamily: 'sans-serif', color: '#e53e3e' }}>Data penugasan tidak ditemukan atau ID tidak valid.</div>;
+  if (loading) return <div style={{ padding: '60px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat detail penugasan...</div>;
+  if (!detail) return <div style={{ padding: '60px', textAlign: 'center', fontFamily: 'sans-serif', color: '#e53e3e' }}>Data penugasan tidak ditemukan.</div>;
 
   const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
   const listDasar = Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [];
-  const isPengawasanMode = jenisTimMode !== 'perjadin';
-
-  const pjObj = listPersonil.find(p => typeof p === 'object' && p?.peran === 'Penanggung Jawab');
-  const wpjObj = listPersonil.find(p => typeof p === 'object' && p?.peran === 'Wakil Penanggung Jawab');
-  const daltekObj = listPersonil.find(p => typeof p === 'object' && p?.peran === 'Pengendali Teknis');
-  const ketuaObj = listPersonil.find(p => typeof p === 'object' && p?.peran === 'Ketua Tim');
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', fontFamily: 'sans-serif', paddingBottom: '60px' }}>
@@ -387,24 +356,19 @@ export default function DetailProgresPenugasanPage() {
       <div style={{ backgroundColor: '#fff', border: '1px solid #cbd5e0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
         <div style={{ backgroundColor: '#2b6cb0', color: '#fff', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 }}>
-                Profil Penugasan Pengawasan
-              </span>
-              <span style={{ fontSize: '10px', backgroundColor: isPengawasanMode ? '#ed8936' : '#38a169', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
-                {isPengawasanMode ? 'Mode Tim Pengawasan' : 'Mode Perjadin Biasa'}
-              </span>
-            </div>
+            <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 }}>
+              Profil Penugasan Pengawasan
+            </span>
             <h1 style={{ margin: '4px 0 0 0', fontSize: '18px', fontWeight: 'bold' }}>
               {safeString(detail.maksud_penugasan)}
             </h1>
           </div>
 
           <button 
-            onClick={() => { initEditForm(detail); setIsEditing(true); }}
+            onClick={() => setIsEditing(true)}
             style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
           >
-            ✏️ Edit Penugasan
+            ✏️ Edit Surat Tugas Utama
           </button>
         </div>
 
@@ -412,60 +376,38 @@ export default function DetailProgresPenugasanPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <tbody>
               <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                <td style={{ padding: '8px 0', width: '220px', fontWeight: 'bold', color: '#4a5568' }}>Nomor Penugasan / Surat</td>
+                <td style={{ padding: '8px 0', width: '220px', fontWeight: 'bold', color: '#4a5568' }}>Nomor Surat Tugas</td>
                 <td style={{ padding: '8px 0', width: '20px', color: '#a0aec0' }}>:</td>
                 <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#2b6cb0' }}>{safeString(detail.nomor_surat)}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Obyek / Tempat Tujuan</td>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Tempat Tujuan Pengawasan</td>
                 <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
                 <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#1a202c' }}>{safeString(detail.tempat_tujuan)}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Tanggal Pelaksanaan / Surat</td>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Tanggal Surat / Pelaksanaan</td>
                 <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
                 <td style={{ padding: '8px 0', color: '#2d3748' }}>{formatTanggalIndo(detail.tanggal_surat)}</td>
               </tr>
-
-              {isPengawasanMode ? (
-                <>
-                  <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>1. Penanggung Jawab</td>
-                    <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                    <td style={{ padding: '8px 0', color: '#2d3748' }}>{pjObj ? pjObj.nama : 'Inspektur Daerah Kabupaten Malang'}</td>
-                  </tr>
-                  <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>2. Wakil Penanggung Jawab</td>
-                    <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                    <td style={{ padding: '8px 0', color: '#2d3748' }}>{wpjObj ? wpjObj.nama : 'Irban Wilayah'}</td>
-                  </tr>
-                  <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>3. Pengendali Teknis (Daltek)</td>
-                    <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                    <td style={{ padding: '8px 0', color: '#2d3748' }}>{daltekObj ? daltekObj.nama : 'Auditor Ahli Madya'}</td>
-                  </tr>
-                  <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>4. Ketua Tim</td>
-                    <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#2d3748' }}>{ketuaObj ? ketuaObj.nama : '-'}</td>
-                  </tr>
-                </>
-              ) : null}
-
-              <tr>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568', verticalAlign: 'top' }}>
-                  {isPengawasanMode ? '5. Anggota Tim' : 'Daftar Pegawai Ditugaskan'} ({listPersonil.length} Orang)
+              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Tanggal Penandatanganan SPD</td>
+                <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#38a169' }}>
+                  {formatTanggalIndo(spdForm.tgl_spd || detail.tanggal_spd || detail.tanggal_surat)}
                 </td>
+              </tr>
+              <tr>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568', verticalAlign: 'top' }}>Daftar Personil Penugasan</td>
                 <td style={{ padding: '8px 0', color: '#a0aec0', verticalAlign: 'top' }}>:</td>
                 <td style={{ padding: '8px 0', color: '#2d3748' }}>
                   <ol style={{ margin: 0, paddingLeft: '18px' }}>
                     {listPersonil.map((p, pIdx) => {
                       const pNama = typeof p === 'object' ? (p?.nama || '-') : String(p || '-');
                       const pJabatan = typeof p === 'object' ? (p?.jabatan || '') : '';
-                      const pPeran = typeof p === 'object' ? (p?.peran || '') : '';
                       return (
                         <li key={pIdx} style={{ marginBottom: '4px' }}>
-                          <strong>{pNama}</strong> {pPeran ? <span style={{ color: '#2b6cb0', fontSize: '11px', fontWeight: 'bold' }}>[{pPeran}]</span> : null} {pJabatan ? <span style={{ color: '#718096', fontSize: '12px' }}>- {pJabatan}</span> : null}
+                          <strong>{pNama}</strong> {pJabatan ? <span style={{ color: '#718096', fontSize: '12px' }}>({pJabatan})</span> : null}
                         </li>
                       );
                     })}
@@ -499,23 +441,13 @@ export default function DetailProgresPenugasanPage() {
         >
           2. Pelaksanaan Lapangan
         </button>
-        <button 
-          onClick={() => setActiveStep(3)}
-          style={{
-            padding: '12px 24px', border: 'none', background: 'none', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer',
-            borderBottom: activeStep === 3 ? '3px solid #38a169' : 'transparent',
-            color: activeStep === 3 ? '#38a169' : '#718096'
-          }}
-        >
-          3. Pelaporan & TLHP
-        </button>
       </div>
 
       {/* TAHAP 1 */}
       {activeStep === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* SURAT TUGAS */}
+          {/* SURAT TUGAS PREVIEW */}
           <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #edf2f7', paddingBottom: '12px' }}>
               <div>
@@ -584,11 +516,10 @@ export default function DetailProgresPenugasanPage() {
                           const pNip = typeof p === 'object' ? (p?.nip || '-') : '-';
                           const pGol = typeof p === 'object' ? (p?.pangkat_gol || '-') : '-';
                           const pJab = typeof p === 'object' ? (p?.jabatan || '-') : '-';
-                          const pPeran = typeof p === 'object' ? (p?.peran || 'Pegawai') : 'Pegawai';
                           
                           return (
                             <div key={pIdx} style={{ marginBottom: '12px' }}>
-                              <strong>{pIdx + 1}. Nama</strong> : {pNama} {isPengawasanMode ? <strong>({pPeran})</strong> : null}<br />
+                              <strong>{pIdx + 1}. Nama</strong> : {pNama}<br />
                               &nbsp;&nbsp;&nbsp;&nbsp;<strong>NIP</strong> : {pNip}<br />
                               &nbsp;&nbsp;&nbsp;&nbsp;<strong>Pangkat/Gol</strong> : {pGol}<br />
                               &nbsp;&nbsp;&nbsp;&nbsp;<strong>Jabatan</strong> : {pJab}
@@ -627,19 +558,31 @@ export default function DetailProgresPenugasanPage() {
             </div>
           </div>
 
-          {/* SPD */}
+          {/* DOKUMEN SPD & CONSOLE FITUR */}
           <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            
+            {/* HEADER SPD WITH CONSOLE BUTTON */}
             <div style={{ borderBottom: '1px solid #edf2f7', paddingBottom: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📑 Pratinjau Dokumen SPD</h3>
-                <span style={{ fontSize: '12px', color: '#718096' }}>Pilih personil untuk pratinjau lembar SPD fisik</span>
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📑 Pratinjau & Pengaturan Lembar SPD</h3>
+                <span style={{ fontSize: '12px', color: '#718096' }}>Ubah tanggal penandatanganan SPD, rute keberangkatan, dan detail khusus per pegawai</span>
               </div>
 
-              <button onClick={handleDownloadSPDBelakang} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                📥 Unduh Word Lembar Visum (Belakang)
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  onClick={() => setShowSPDConsole(true)}
+                  style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  ⚙️ Console / Edit Variable SPD
+                </button>
+
+                <button onClick={handleDownloadSPDBelakang} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                  📥 Unduh Lembar Visum
+                </button>
+              </div>
             </div>
 
+            {/* TAB KHUSUS PERSONIL SPD */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {listPersonil.map((p, idx) => {
@@ -647,7 +590,7 @@ export default function DetailProgresPenugasanPage() {
                   return (
                     <button
                       key={idx}
-                      onClick={() => setActiveSPDPreviewIndex(activeSPDPreviewIndex === idx ? null : idx)}
+                      onClick={() => setActiveSPDPreviewIndex(idx)}
                       style={{
                         padding: '8px 14px', borderRadius: '4px', border: '1px solid #cbd5e0',
                         backgroundColor: activeSPDPreviewIndex === idx ? '#2b6cb0' : '#f7fafc',
@@ -661,79 +604,139 @@ export default function DetailProgresPenugasanPage() {
                 })}
               </div>
 
-              {activeSPDPreviewIndex !== null && (
-                <div style={{ display: 'flex', border: '1px solid #cbd5e0', borderRadius: '4px', overflow: 'hidden' }}>
-                  <button onClick={() => setSpdPageType('depan')} style={{ padding: '6px 12px', border: 'none', backgroundColor: spdPageType === 'depan' ? '#4a5568' : '#fff', color: spdPageType === 'depan' ? '#fff' : '#4a5568', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>
-                    📄 Halaman Depan
-                  </button>
-                  <button onClick={() => setSpdPageType('belakang')} style={{ padding: '6px 12px', border: 'none', backgroundColor: spdPageType === 'belakang' ? '#4a5568' : '#fff', color: spdPageType === 'belakang' ? '#fff' : '#4a5568', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>
-                    📑 Halaman Belakang (Visum)
-                  </button>
-                </div>
-              )}
+              <div style={{ display: 'flex', border: '1px solid #cbd5e0', borderRadius: '4px', overflow: 'hidden' }}>
+                <button onClick={() => setSpdPageType('depan')} style={{ padding: '6px 12px', border: 'none', backgroundColor: spdPageType === 'depan' ? '#4a5568' : '#fff', color: spdPageType === 'depan' ? '#fff' : '#4a5568', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>
+                  📄 Halaman Depan
+                </button>
+                <button onClick={() => setSpdPageType('belakang')} style={{ padding: '6px 12px', border: 'none', backgroundColor: spdPageType === 'belakang' ? '#4a5568' : '#fff', color: spdPageType === 'belakang' ? '#fff' : '#4a5568', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>
+                  📑 Halaman Belakang (Visum)
+                </button>
+              </div>
             </div>
 
-            {activeSPDPreviewIndex !== null && listPersonil[activeSPDPreviewIndex] && (
+            {/* PREVIEW KERTAS SPD SINKRON DENGAN CONSOLE */}
+            {listPersonil[activeSPDPreviewIndex] && (
               <div style={{ backgroundColor: '#f7fafc', padding: '20px', borderRadius: '6px', border: '1px solid #cbd5e0' }}>
                 {(() => {
                   const p = listPersonil[activeSPDPreviewIndex];
-                  const pNama = typeof p === 'object' ? (p?.nama || '-') : String(p || '-');
-                  const pNip = typeof p === 'object' ? (p?.nip || '-') : '-';
-                  const pGol = typeof p === 'object' ? (p?.pangkat_gol || '-') : '-';
-                  const pJab = typeof p === 'object' ? (p?.jabatan || '-') : '-';
+                  const pObj = typeof p === 'object' ? p : { nama: String(p || '-') };
+                  const pNama = pObj?.nama || '-';
+                  const pNip = pObj?.nip || '-';
+                  const pGol = pObj?.pangkat_gol || '-';
+                  const pJab = pObj?.jabatan || '-';
 
-                  return (
-                    <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', border: '1px solid #e2e8f0', fontFamily: 'Arial, sans-serif', fontSize: '12px' }}>
-                      <div style={{ textAlign: 'right', fontSize: '10px', marginBottom: '10px' }}>
-                        Lembar ke : .........<br />Nomor : {safeString(detail.nomor_surat)}
+                  if (spdPageType === 'depan') {
+                    return (
+                      <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', border: '1px solid #e2e8f0', fontFamily: 'Arial, sans-serif', fontSize: '12px' }}>
+                        <div style={{ textAlign: 'right', fontSize: '10px', marginBottom: '10px' }}>
+                          Lembar ke : .........<br />Nomor : {spdForm.nomor_spd || detail.nomor_surat}
+                        </div>
+
+                        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', textDecoration: 'underline', marginBottom: '16px' }}>
+                          SURAT PERJALANAN DINAS (S.P.D)
+                        </div>
+
+                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="6">
+                          <tbody>
+                            <tr>
+                              <td style={{ width: '30px', textAlign: 'center' }}>1.</td>
+                              <td style={{ width: '220px' }}>Pengguna Anggaran</td>
+                              <td>{spdForm.pengguna_anggaran}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>2.</td>
+                              <td>Nama Pegawai yang diperintah</td>
+                              <td><strong>{pNama}</strong></td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>3.</td>
+                              <td>a. Pangkat dan Golongan<br />b. Jabatan</td>
+                              <td>a. {pGol}<br />b. {pJab}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>4.</td>
+                              <td>Maksud Perjalanan Dinas</td>
+                              <td>{safeString(detail.maksud_penugasan)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>5.</td>
+                              <td>Tempat Berangkat / Tujuan</td>
+                              <td><strong>{spdForm.tempat_berangkat}</strong> / <strong>{spdForm.tempat_tujuan || detail.tempat_tujuan}</strong></td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>6.</td>
+                              <td>Tanggal Berangkat / Kembali</td>
+                              <td>{formatTanggalIndo(spdForm.tgl_berangkat || detail.tanggal_surat)} s.d {formatTanggalIndo(spdForm.tgl_kembali || detail.tanggal_surat)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>7.</td>
+                              <td>Tanggal Dikeluarkan SPD</td>
+                              <td><strong>{formatTanggalIndo(spdForm.tgl_spd || detail.tanggal_spd || detail.tanggal_surat)}</strong></td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                          <button onClick={() => handleDownloadSPDDepanSingle(pObj)} style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            📥 Unduh File Word SPD Depan ({pNama})
+                          </button>
+                        </div>
                       </div>
+                    );
+                  } else {
+                    return (
+                      <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', border: '1px solid #e2e8f0', fontFamily: 'Arial, sans-serif', fontSize: '11px' }}>
+                        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '12px', marginBottom: '16px' }}>
+                          LEMBAR VISUM / PEMERIKSAAN PERJALANAN DINAS
+                        </div>
 
-                      <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', textDecoration: 'underline', marginBottom: '16px' }}>
-                        SURAT PERJALANAN DINAS (S.P.D)
+                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="8">
+                          <tbody>
+                            <tr>
+                              <td style={{ width: '50%', verticalAlign: 'top' }}>
+                                <strong>I. Berangkat dari</strong> : {spdForm.tempat_berangkat}<br />
+                                <strong>Ke</strong> : {spdForm.tempat_tujuan || detail.tempat_tujuan}<br />
+                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(spdForm.tgl_berangkat || detail.tanggal_surat)}<br /><br />
+                                Pengguna Anggaran,<br /><br /><br />
+                                <strong><u>{spdForm.pengguna_anggaran}</u></strong><br />
+                                NIP. {spdForm.nip_pa}
+                              </td>
+                              <td style={{ width: '50%', verticalAlign: 'top' }}>
+                                <strong>Tiba di</strong> : {spdForm.tempat_tujuan || detail.tempat_tujuan}<br />
+                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(spdForm.tgl_berangkat || detail.tanggal_surat)}<br /><br />
+                                Kepala / Pejabat Setempat,<br /><br /><br />
+                                ..................................................<br />
+                                NIP.
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style={{ verticalAlign: 'top' }}>
+                                <strong>II. Berangkat dari</strong> : {spdForm.tempat_tujuan || detail.tempat_tujuan}<br />
+                                <strong>Ke</strong> : {spdForm.tempat_kembali}<br />
+                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(spdForm.tgl_kembali || detail.tanggal_surat)}<br /><br />
+                                Kepala / Pejabat Setempat,<br /><br /><br />
+                                ..................................................<br />
+                                NIP.
+                              </td>
+                              <td style={{ verticalAlign: 'top' }}>
+                                <strong>Tiba di</strong> : {spdForm.tempat_kembali}<br />
+                                <strong>Pada Tanggal</strong> : {formatTanggalIndo(spdForm.tgl_kembali || detail.tanggal_surat)}<br /><br />
+                                Pengguna Anggaran,<br /><br /><br />
+                                <strong><u>{spdForm.pengguna_anggaran}</u></strong><br />
+                                NIP. {spdForm.nip_pa}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                          <button onClick={handleDownloadSPDBelakang} style={{ backgroundColor: '#4a5568', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            📥 Unduh File Word Lembar Visum
+                          </button>
+                        </div>
                       </div>
-
-                      <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="6">
-                        <tbody>
-                          <tr>
-                            <td style={{ width: '30px', textAlign: 'center' }}>1.</td>
-                            <td style={{ width: '220px' }}>Pengguna Anggaran</td>
-                            <td>ARRIE HENDRAWAN MAHADHIEKA, S.H.</td>
-                          </tr>
-                          <tr>
-                            <td style={{ textAlign: 'center' }}>2.</td>
-                            <td>Nama Pegawai yang diperintah</td>
-                            <td><strong>{pNama}</strong></td>
-                          </tr>
-                          <tr>
-                            <td style={{ textAlign: 'center' }}>3.</td>
-                            <td>a. Pangkat dan Golongan<br />b. Jabatan</td>
-                            <td>a. {pGol}<br />b. {pJab}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ textAlign: 'center' }}>4.</td>
-                            <td>Maksud Perjalanan Dinas</td>
-                            <td>{safeString(detail.maksud_penugasan)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ textAlign: 'center' }}>5.</td>
-                            <td>Tempat Berangkat / Tujuan</td>
-                            <td>Singosari, Kab. Malang / <strong>{safeString(detail.tempat_tujuan)}</strong></td>
-                          </tr>
-                          <tr>
-                            <td style={{ textAlign: 'center' }}>6.</td>
-                            <td>Tanggal Berangkat / Kembali</td>
-                            <td>{formatTanggalIndo(detail.tanggal_surat)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-
-                      <div style={{ marginTop: '16px', textAlign: 'right' }}>
-                        <button onClick={() => handleDownloadSPDDepanSingle(p)} style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                          📥 Unduh File Word SPD Depan ({pNama})
-                        </button>
-                      </div>
-                    </div>
-                  );
+                    );
+                  }
                 })()}
               </div>
             )}
@@ -742,148 +745,63 @@ export default function DetailProgresPenugasanPage() {
         </div>
       )}
 
-      {/* TAHAP 2 */}
-      {activeStep === 2 && (
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px' }}>
-          <h3 style={{ marginTop: 0, color: '#dd6b20' }}>Tahap 2: Pelaksanaan Lapangan</h3>
-          <p style={{ fontSize: '13px', color: '#4a5568' }}>Dokumentasi KKP dan Berita Acara Lapangan.</p>
-        </div>
-      )}
-
-      {/* TAHAP 3 */}
-      {activeStep === 3 && (
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px' }}>
-          <h3 style={{ marginTop: 0, color: '#38a169' }}>Tahap 3: Pelaporan (LHP) & TLHP</h3>
-          <p style={{ fontSize: '13px', color: '#4a5568' }}>Penyusunan LHP & Pemantauan TLHP.</p>
-        </div>
-      )}
-
-      {/* MODAL EDIT PENUGASAN HYBRID */}
-      {isEditing && (
+      {/* CONSOLE EDIT VARIABLE SPD (MODAL) */}
+      {showSPDConsole && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '750px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '700px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '16px' }}>
-              <h2 style={{ margin: 0, fontSize: '18px', color: '#1a202c' }}>
-                ✏️ Edit Penugasan
+              <h2 style={{ margin: 0, fontSize: '18px', color: '#2b6cb0' }}>
+                ⚙️ Console & Tabel Isian Variabel SPD
               </h2>
-
-              <div style={{ display: 'flex', backgroundColor: '#edf2f7', padding: '2px', borderRadius: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => handleSwitchMode('pengawasan')}
-                  style={{
-                    padding: '6px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
-                    backgroundColor: jenisTimMode === 'pengawasan' ? '#2b6cb0' : 'transparent',
-                    color: jenisTimMode === 'pengawasan' ? '#fff' : '#4a5568'
-                  }}
-                >
-                  🔍 Mode Tim Pengawasan
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSwitchMode('perjadin')}
-                  style={{
-                    padding: '6px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
-                    backgroundColor: jenisTimMode === 'perjadin' ? '#38a169' : 'transparent',
-                    color: jenisTimMode === 'perjadin' ? '#fff' : '#4a5568'
-                  }}
-                >
-                  🚗 Mode Perjadin Biasa
-                </button>
-              </div>
+              <button onClick={() => setShowSPDConsole(false)} style={{ background: 'none', border: 'none', fontSize: '16px', cursor: 'pointer' }}>✕</button>
             </div>
 
-            <form onSubmit={handleSaveEditPenugasan}>
+            <form onSubmit={handleSaveSPDConsole}>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Nomor Surat Penugasan:</label>
-                  <input type="text" value={editForm.nomor_surat} onChange={(e) => setEditForm({ ...editForm, nomor_surat: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} required />
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tanggal Dikeluarkan SPD:</label>
+                  <input type="date" value={spdForm.tgl_spd} onChange={(e) => setSpdForm({ ...spdForm, tgl_spd: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Obyek / Tempat Tujuan:</label>
-                  <input type="text" value={editForm.tempat_tujuan} onChange={(e) => setEditForm({ ...editForm, tempat_tujuan: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} required />
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Nomor Dokumen SPD:</label>
+                  <input type="text" value={spdForm.nomor_spd} onChange={(e) => setSpdForm({ ...spdForm, nomor_spd: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} />
                 </div>
               </div>
 
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Maksud Penugasan:</label>
-                <textarea value={editForm.maksud_penugasan} onChange={(e) => setEditForm({ ...editForm, maksud_penugasan: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', height: '60px', fontSize: '13px' }} required />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tempat Keberangkatan:</label>
+                  <input type="text" value={spdForm.tempat_berangkat} onChange={(e) => setSpdForm({ ...spdForm, tempat_berangkat: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} required />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tempat Tujuan:</label>
+                  <input type="text" value={spdForm.tempat_tujuan} onChange={(e) => setSpdForm({ ...spdForm, tempat_tujuan: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} required />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tujuan Kembali (Pulang):</label>
+                  <input type="text" value={spdForm.tempat_kembali} onChange={(e) => setSpdForm({ ...spdForm, tempat_kembali: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} required />
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tanggal Surat Tugas:</label>
-                  <input type="date" value={editForm.tanggal_surat} onChange={(e) => setEditForm({ ...editForm, tanggal_surat: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} />
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Nama Pengguna Anggaran (PA):</label>
+                  <input type="text" value={spdForm.pengguna_anggaran} onChange={(e) => setSpdForm({ ...spdForm, pengguna_anggaran: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tanggal SPD:</label>
-                  <input type="date" value={editForm.tanggal_spd} onChange={(e) => setEditForm({ ...editForm, tanggal_spd: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '13px' }} />
-                </div>
-              </div>
-
-              {/* INPUT PEGAWAI */}
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0' }}>
-                    👥 Daftar Pegawai & Peran Dalam Tim ({jenisTimMode === 'pengawasan' ? 'Hirarkis Pengawasan' : 'Perjadin Biasa'})
-                  </label>
-                  <button type="button" onClick={() => handleAddPersonil(jenisTimMode === 'pengawasan' ? 'Anggota Tim' : 'Pegawai')} style={{ backgroundColor: '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
-                    + Tambah Pegawai
-                  </button>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {editForm.personil.map((p, pIdx) => (
-                    <div key={pIdx} style={{ display: 'grid', gridTemplateColumns: jenisTimMode === 'pengawasan' ? '1.5fr 1.8fr 1.2fr 1.2fr 30px' : '2fr 1.5fr 1.5fr 30px', gap: '6px', alignItems: 'center', backgroundColor: '#f8fafc', padding: '8px', borderRadius: '4px', border: '1px solid #edf2f7' }}>
-                      
-                      {jenisTimMode === 'pengawasan' && (
-                        <select 
-                          value={p?.peran || 'Anggota Tim'} 
-                          onChange={(e) => handlePersonilChange(pIdx, 'peran', e.target.value)}
-                          style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '11px', fontWeight: 'bold', color: '#2b6cb0' }}
-                        >
-                          {OPSI_PERAN.map((role, rIdx) => (
-                            <option key={rIdx} value={role}>{role}</option>
-                          ))}
-                        </select>
-                      )}
-
-                      <input type="text" placeholder="Nama Pegawai" value={p?.nama || ''} onChange={(e) => handlePersonilChange(pIdx, 'nama', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} required />
-                      <input type="text" placeholder="NIP" value={p?.nip || ''} onChange={(e) => handlePersonilChange(pIdx, 'nip', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} />
-                      <input type="text" placeholder="Jabatan" value={p?.jabatan || ''} onChange={(e) => handlePersonilChange(pIdx, 'jabatan', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} />
-                      <button type="button" onClick={() => handleRemovePersonil(pIdx)} style={{ backgroundColor: '#e53e3e', color: '#fff', border: 'none', borderRadius: '4px', height: '28px', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* EDIT DASAR HUKUM */}
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0' }}>⚖️ Dasar Hukum Penugasan</label>
-                  <button type="button" onClick={handleAddDasar} style={{ backgroundColor: '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
-                    + Tambah Dasar
-                  </button>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {editForm.dasar_hukum.map((d, dIdx) => (
-                    <div key={dIdx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <input type="text" value={safeString(d, '')} onChange={(e) => handleDasarChange(dIdx, e.target.value)} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} required />
-                      <button type="button" onClick={() => handleRemoveDasar(dIdx)} style={{ backgroundColor: '#e53e3e', color: '#fff', border: 'none', borderRadius: '4px', width: '28px', height: '28px', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
-                    </div>
-                  ))}
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>NIP Pengguna Anggaran:</label>
+                  <input type="text" value={spdForm.nip_pa} onChange={(e) => setSpdForm({ ...spdForm, nip_pa: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} />
                 </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
-                <button type="button" onClick={() => setIsEditing(false)} style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '4px', background: '#fff', cursor: 'pointer', fontSize: '12px' }}>
+                <button type="button" onClick={() => setShowSPDConsole(false)} style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '4px', background: '#fff', cursor: 'pointer', fontSize: '12px' }}>
                   Batal
                 </button>
                 <button type="submit" disabled={saving} style={{ padding: '8px 16px', border: 'none', borderRadius: '4px', background: '#2b6cb0', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>
-                  {saving ? 'Menyimpan...' : 'Simpan Perubahan Penugasan'}
+                  {saving ? 'Memproses...' : 'Terapkan & Simpan Variabel SPD'}
                 </button>
               </div>
 
