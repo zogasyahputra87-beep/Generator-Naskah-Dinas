@@ -42,14 +42,14 @@ export default function DetailProgresPenugasanPage() {
   // Console State Khusus Isian SPD (Default: Inspektorat Daerah Kab. Malang)
   const [spdForm, setSpdForm] = useState({
     nomor_spd: '',
-    pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
+    pengguna_anggaran: 'ARRIE HENDRAWAN MAHARDHIEKA, S.H.',
     nip_pa: '198008012010011018',
     tempat_berangkat: 'Inspektorat Daerah Kab. Malang',
-    tempat_tujuan: '',
+    tempat_tujuan: '-',
     tempat_kembali: 'Inspektorat Daerah Kab. Malang',
-    tgl_spd: '',
-    tgl_berangkat: '',
-    tgl_kembali: '',
+    tgl_spd: '-',
+    tgl_berangkat: '-',
+    tgl_kembali: '-',
     personil_spd: []
   });
 
@@ -138,7 +138,7 @@ export default function DetailProgresPenugasanPage() {
 
     setSpdForm({
       nomor_spd: item.nomor_surat || '',
-      pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
+      pengguna_anggaran: 'ARRIE HENDRAWAN MAHARDHIEKA, S.H.',
       nip_pa: '198008012010011018',
       tempat_berangkat: item.tempat_berangkat || 'Inspektorat Daerah Kab. Malang',
       tempat_tujuan: item.tempat_tujuan || '',
