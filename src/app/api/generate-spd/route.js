@@ -8,26 +8,40 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    // 1. Cek Keberadaan Template
-    const templatePath = path.join(process.cwd(), 'public', 'templates', 'template_spd.docx');
-    
-    if (!fs.existsSync(templatePath)) {
-      return NextResponse.json(
-        { message: 'File template_spd.docx tidak ditemukan di public/templates/' },
-        { status: 404 }
-      );
+    // 1. Tentukan nama template berdasarkan permintaan (Depan vs Belakang)
+    const isBelakang = body.halaman_belakang_only === true;
+    const templateFileName = isBelakang ? 'template_spd_belakang.docx' : 'template_spd_depan.docx';
+
+    let content;
+    const templatePath = path.join(process.cwd(), 'public', 'templates', templateFileName);
+
+    // 2. Pembacaan File (Lokal FS -> Fallback HTTP Fetch jika di Vercel)
+    if (fs.existsSync(templatePath)) {
+      content = fs.readFileSync(templatePath, 'binary');
+    } else {
+      const host = req.headers.get('host') || 'localhost:3000';
+      const protocol = host.includes('localhost') ? 'http' : 'https';
+      const templateUrl = `${protocol}://${host}/templates/${templateFileName}`;
+
+      const response = await fetch(templateUrl);
+      if (!response.ok) {
+        return NextResponse.json(
+          { message: `File ${templateFileName} tidak ditemukan di public/templates/ (Status 404)` },
+          { status: 404 }
+        );
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      content = Buffer.from(arrayBuffer);
     }
 
-    const content = fs.readFileSync(templatePath, 'binary');
     const zip = new PizZip(content);
-
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
       delimiters: { start: '{', end: '}' }
     });
 
-    // 2. Normalisasi Data (Gunakan Nilai Cadangan '-' Agar Tidak Crash)
+    // 3. Payload SPD Lengkap (Semua bidang terisi aman)
     const payloadSPD = {
       nomor_spd: body.nomor_spd || '-',
       nama: body.nama || '-',
@@ -50,23 +64,23 @@ export async function POST(req) {
       nip_pa: body.nip_pa || '198008012010011018'
     };
 
-    // 3. Inject & Render
     doc.setData(payloadSPD);
     doc.render();
 
     const buf = doc.getZip().generate({ type: 'nodebuffer' });
 
-    // 4. Return File Word
+    const prefixFilename = isBelakang ? 'SPD_Belakang_Visum' : `SPD_Depan_${(payloadSPD.nama).replace(/[\/\s]+/g, '_')}`;
+
     return new NextResponse(buf, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'Content-Disposition': `attachment; filename=SPD_${(payloadSPD.nama).replace(/[\/\s]+/g, '_')}.docx`
+        'Content-Disposition': `attachment; filename=${prefixFilename}.docx`
       }
     });
 
   } catch (error) {
-    console.error('API Generate SPD Error Detail:', error);
+    console.error('API Generate SPD Error:', error);
     return NextResponse.json(
       { message: 'Gagal merender dokumen SPD', error: error.message || String(error) },
       { status: 500 }
