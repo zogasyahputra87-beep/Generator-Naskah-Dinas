@@ -48,9 +48,9 @@ export async function POST(req) {
       nip: body.nip || '-',
       pangkat_gol: body.pangkat_gol || '-',
       jabatan: body.jabatan || '-',
-      tingkat_biaya: body.tingkat_biaya || 'Tingkat C',
+      tingkat_biaya: body.tingkat_biaya || ' ',
       maksud_penugasan: body.maksud_penugasan || '-',
-      alat_angkut: body.alat_angkut || 'Kendaraan Dinas / Umum',
+      alat_angkut: body.alat_angkut || 'Angkutan Darat',
       tempat_berangkat: body.tempat_berangkat || 'Inspektorat Daerah Kab. Malang',
       tempat_tujuan: body.tempat_tujuan || '-',
       tempat_kembali: body.tempat_kembali || 'Inspektorat Daerah Kab. Malang',
@@ -59,8 +59,8 @@ export async function POST(req) {
       tgl_kembali: body.tgl_kembali || '-',
       tgl_spd: body.tgl_spd || '-',
       skpd_pembebanan: body.skpd_pembebanan || 'Inspektorat Daerah Kabupaten Malang',
-      akun_pembebanan: body.akun_pembebanan || '5.1.02.04.01.0001',
-      pengguna_anggaran: body.pengguna_anggaran || 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
+      akun_pembebanan: body.akun_pembebanan || ' ',
+      pengguna_anggaran: body.pengguna_anggaran || 'ARRIE HENDRAWAN MAHARDHIEKA, S.H.',
       nip_pa: body.nip_pa || '198008012010011018'
     };
 
