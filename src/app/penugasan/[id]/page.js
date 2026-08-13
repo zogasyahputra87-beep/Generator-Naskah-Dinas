@@ -6,6 +6,14 @@ import Link from 'next/link';
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
+// DAFTAR DASAR HUKUM DEFAULT RESMI (4 PERATURAN)
+const DASAR_HUKUM_DEFAULT = [
+  'Peraturan Pemerintah Nomor 12 Tahun 2017 tentang Pembinaan dan Pengawasan Penyelenggaraan Pemerintah Daerah',
+  'Peraturan Daerah Kabupaten Malang Nomor 3 Tahun 2023 Tentang Perubahan Keempat atas Peraturan Daerah Nomor 9 Tahun 2016 Tentang Pembentukan dan Susunan Perangkat Daerah',
+  'Peraturan Bupati Nomor 10 Tahun 2026 Tentang Perubahan Ketiga Atas Peraturan Bupati Malang Nomor 63 Tahun 2016 Tentang Kedudukan, Susunan Organisasi, Tugas dan Fungsi, Serta Tata Kerja Inspektorat Daerah',
+  'Dokumen Pelaksanaan Perubahan Anggaran Inspektorat Daerah Kabupaten Malang Tahun Anggaran 2026 Nomor: DPA/A.2/6.01.0.00.0.00.01.0000/001/2026 tanggal 9 Juni 2026'
+];
+
 function safeString(val, fallback = '-') {
   if (val === null || val === undefined) return fallback;
   if (typeof val === 'object') {
@@ -25,6 +33,22 @@ function formatTanggalIndo(tanggalStr) {
   }
 }
 
+// FUNGSI PEMBANTU: MENAMBAHKAN ", dengan ini:" PADA DASAR HUKUM TERAKHIR
+function appendDenganIni(listText) {
+  if (!Array.isArray(listText) || listText.length === 0) return [];
+  return listText.map((item, idx) => {
+    let textStr = typeof item === 'object' ? (item?.dasar_hukum || item?.teks || '') : String(item || '');
+    // Hapus titik atau koma atau spasi di paling akhir jika ada
+    textStr = textStr.trim().replace(/[.;,]+$/, '');
+    
+    // Jika item terakhir, tempelkan ", dengan ini:"
+    if (idx === listText.length - 1) {
+      return `${textStr}, dengan ini:`;
+    }
+    return `${textStr};`;
+  });
+}
+
 export default function DetailProgresPenugasanPage() {
   const params = useParams();
   const penugasanId = params?.id;
@@ -42,7 +66,7 @@ export default function DetailProgresPenugasanPage() {
   // Console State Khusus Isian SPD (Default: Inspektorat Daerah Kab. Malang)
   const [spdForm, setSpdForm] = useState({
     nomor_spd: '',
-    pengguna_anggaran: 'ARRIE HENDRAWAN MAHARDHIEKA, S.H.',
+    pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
     nip_pa: '198008012010011018',
     tempat_berangkat: 'Inspektorat Daerah Kab. Malang',
     tempat_tujuan: '-',
@@ -117,6 +141,9 @@ export default function DetailProgresPenugasanPage() {
     const rawDasar = Array.isArray(item.dasar_hukum) ? item.dasar_hukum : [];
     const dasarFormatted = rawDasar.map(d => typeof d === 'object' ? (d?.dasar_hukum || d?.teks || JSON.stringify(d)) : String(d || ''));
 
+    // Gunakan dasar hukum dari DB atau default jika kosong
+    const finalDasarList = dasarFormatted.length > 0 ? dasarFormatted : DASAR_HUKUM_DEFAULT;
+
     // Init Form Edit Utama
     setEditForm({
       nomor_surat: item.nomor_surat || '',
@@ -124,7 +151,7 @@ export default function DetailProgresPenugasanPage() {
       tempat_tujuan: item.tempat_tujuan || '',
       tanggal_surat: item.tanggal_surat || '',
       tanggal_spd: item.tanggal_spd || item.tanggal_surat || '',
-      dasar_hukum: dasarFormatted,
+      dasar_hukum: finalDasarList,
       personil: personilFormatted,
     });
 
@@ -138,7 +165,7 @@ export default function DetailProgresPenugasanPage() {
 
     setSpdForm({
       nomor_spd: item.nomor_surat || '',
-      pengguna_anggaran: 'ARRIE HENDRAWAN MAHARDHIEKA, S.H.',
+      pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
       nip_pa: '198008012010011018',
       tempat_berangkat: item.tempat_berangkat || 'Inspektorat Daerah Kab. Malang',
       tempat_tujuan: item.tempat_tujuan || '',
@@ -194,10 +221,16 @@ export default function DetailProgresPenugasanPage() {
   const handleDownloadSuratTugas = async () => {
     if (!detail) return;
 
-    const rawDasar = Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [];
-    const dasarListClean = rawDasar.map((d, idx) => ({
+    const rawDasar = Array.isArray(detail.dasar_hukum) && detail.dasar_hukum.length > 0 
+      ? detail.dasar_hukum 
+      : DASAR_HUKUM_DEFAULT;
+      
+    // Tambahkan otomatis ", dengan ini:" pada dasar hukum terakhir
+    const dasarProcessed = appendDenganIni(rawDasar);
+
+    const dasarListClean = dasarProcessed.map((dStr, idx) => ({
       no: idx + 1,
-      dasar_hukum: typeof d === 'object' ? (d?.dasar_hukum || d?.teks || '-') : String(d || '-')
+      dasar_hukum: dStr
     }));
 
     const rawPersonil = Array.isArray(detail.personil) ? detail.personil : [];
@@ -340,7 +373,14 @@ export default function DetailProgresPenugasanPage() {
   if (!detail) return <div style={{ padding: '60px', textAlign: 'center', fontFamily: 'sans-serif', color: '#e53e3e' }}>Data penugasan tidak ditemukan.</div>;
 
   const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
-  const listDasar = Array.isArray(detail.dasar_hukum) ? detail.dasar_hukum : [];
+  
+  // Ambil Dasar Hukum (Gunakan default jika kosong)
+  const rawListDasar = Array.isArray(detail.dasar_hukum) && detail.dasar_hukum.length > 0 
+    ? detail.dasar_hukum 
+    : DASAR_HUKUM_DEFAULT;
+    
+  // Tambahkan ", dengan ini:" pada item terakhir untuk tampilan pratinjau web
+  const listDasarWithDenganIni = appendDenganIni(rawListDasar);
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', fontFamily: 'sans-serif', paddingBottom: '60px' }}>
@@ -489,15 +529,11 @@ export default function DetailProgresPenugasanPage() {
                       <td style={{ width: '80px', fontWeight: 'bold', verticalAlign: 'top' }}>Dasar</td>
                       <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
                       <td style={{ verticalAlign: 'top' }}>
-                        {listDasar.length > 0 ? (
-                          <ol style={{ margin: 0, paddingLeft: '16px' }}>
-                            {listDasar.map((d, dIdx) => (
-                              <li key={dIdx} style={{ marginBottom: '4px' }}>{safeString(d)}</li>
-                            ))}
-                          </ol>
-                        ) : (
-                          'Peraturan Daerah Kabupaten Malang tentang Pokok-Pokok Pengelolaan Keuangan Daerah.'
-                        )}
+                        <ol style={{ margin: 0, paddingLeft: '16px' }}>
+                          {listDasarWithDenganIni.map((dStr, dIdx) => (
+                            <li key={dIdx} style={{ marginBottom: '4px' }}>{dStr}</li>
+                          ))}
+                        </ol>
                       </td>
                     </tr>
                   </tbody>
