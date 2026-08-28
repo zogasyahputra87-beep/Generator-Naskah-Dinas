@@ -51,12 +51,12 @@ export default function DetailProgresPenugasanPage() {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // Tab Naskah Active: 'st' | 'spd_depan' | 'spd_belakang'
   const [activeTabNaskah, setActiveTabNaskah] = useState('st');
   const [showParafHierarki, setShowParafHierarki] = useState(true);
   const [activeSPDIndex, setActiveSPDIndex] = useState(0);
 
-  // Form Isian Variabel SPD
+  const printAreaRef = useRef(null);
+
   const [spdForm, setSpdForm] = useState({
     nomor_spd: '',
     pengguna_anggaran: 'Arrie Hendrawan Mahardhieka, S.H.',
@@ -113,6 +113,40 @@ export default function DetailProgresPenugasanPage() {
     window.print();
   };
 
+  // FITUR EXPORT KE DOCX SIAP EDIT MANUAL INI DITAMBAHKAN
+  const handleExportToDocx = () => {
+    if (!printAreaRef.current) return;
+    
+    const judulDoc = activeTabNaskah === 'st' ? 'Surat_Tugas' : activeTabNaskah === 'spd_depan' ? 'SPD_Depan' : 'SPD_Visum';
+    const htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>${judulDoc}</title>
+        <style>
+          @page { size: A4; margin: 2cm 2cm 2.5cm 3cm; }
+          body { font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.15; }
+          table { width: 100%; border-collapse: collapse; }
+          td { vertical-align: top; }
+        </style>
+      </head>
+      <body>
+        ${printAreaRef.current.innerHTML}
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${judulDoc}_${safeString(detail?.nomor_surat, 'Naskah').replace(/[\/\s]+/g, '_')}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return <div style={{ padding: '60px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat detail naskah dinas...</div>;
   if (!detail) return <div style={{ padding: '60px', textAlign: 'center', fontFamily: 'sans-serif', color: '#e53e3e' }}>Data penugasan tidak ditemukan.</div>;
 
@@ -122,7 +156,6 @@ export default function DetailProgresPenugasanPage() {
     : DASAR_HUKUM_DEFAULT;
   const listDasarWithDenganIni = appendDenganIni(rawListDasar);
 
-  // Personil Terpilih untuk SPD Depan
   const currentPersonilSPD = listPersonil[activeSPDIndex] || {};
   const pNama = typeof currentPersonilSPD === 'object' ? (currentPersonilSPD?.nama || '-') : String(currentPersonilSPD || '-');
   const pNip = typeof currentPersonilSPD === 'object' ? (currentPersonilSPD?.nip || '-') : '-';
@@ -132,7 +165,6 @@ export default function DetailProgresPenugasanPage() {
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', fontFamily: 'Arial, sans-serif', paddingBottom: '60px' }}>
       
-      {/* CSS MEDIA PRINT PRESISI SESUAI PAGE SETUP */}
       <style jsx global>{`
         @media print {
           @page {
@@ -172,7 +204,7 @@ export default function DetailProgresPenugasanPage() {
         </Link>
       </div>
 
-      {/* PANEL TOMBOL KONTROL & PILIHAN NASKAH */}
+      {/* PANEL TOMBOL KONTROL */}
       <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }} className="no-print">
         
         {/* NAVIGASI TAB DOKUMEN */}
@@ -212,10 +244,9 @@ export default function DetailProgresPenugasanPage() {
           </button>
         </div>
 
-        {/* AKSI CETAK / SAKELAR */}
+        {/* DUA OPSI DUKUNGAN DOWNLOAD (PDF & WORD) */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           
-          {/* SAKELAR HANYA TAMPIL DI TAB SURAT TUGAS */}
           {activeTabNaskah === 'st' && (
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: '#edf2f7', padding: '6px 12px', borderRadius: '4px', border: '1px solid #cbd5e0' }}>
               <input type="checkbox" checked={showParafHierarki} onChange={(e) => setShowParafHierarki(e.target.checked)} />
@@ -223,13 +254,16 @@ export default function DetailProgresPenugasanPage() {
             </label>
           )}
 
-          <button onClick={handlePrintPDF} style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>
-            🖨️ Cetak / Export PDF Siap Jadi
+          <button onClick={handlePrintPDF} style={{ backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+            🖨️ Opsi 1: Cetak / PDF
+          </button>
+
+          <button onClick={handleExportToDocx} style={{ backgroundColor: '#38a169', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+            📥 Opsi 2: Download Word (.docx)
           </button>
         </div>
       </div>
 
-      {/* SUB-BAR PERSONIL UNTUK SPD DEPAN */}
       {activeTabNaskah === 'spd_depan' && (
         <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }} className="no-print">
           <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#4a5568' }}>Pilih Pegawai SPD:</span>
@@ -253,10 +287,11 @@ export default function DetailProgresPenugasanPage() {
         </div>
       )}
 
-      {/* CONTAINER DOKUMEN UTAMA (A4 PRESISI) */}
+      {/* CONTAINER PRATINJAU / EXPORT */}
       <div style={{ backgroundColor: '#f7fafc', padding: '24px', borderRadius: '6px', border: '1px solid #cbd5e0', overflowX: 'auto' }}>
         <div 
           id="print-section"
+          ref={printAreaRef}
           style={{ 
             width: '210mm',
             minHeight: '297mm',
@@ -276,7 +311,7 @@ export default function DetailProgresPenugasanPage() {
           }}
         >
 
-          {/* KOP SURAT DIKUNCI PRESISI PADA SEMUA NASKAH */}
+          {/* KOP SURAT */}
           <div style={{ display: 'flex', alignItems: 'center', borderBottom: '3px double #000', paddingBottom: '6px', marginBottom: '16px' }}>
             <div style={{ width: '2.99cm', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
               <img src="/logo-kab-malang.png" alt="Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '70px', height: 'auto' }} />
@@ -296,16 +331,14 @@ export default function DetailProgresPenugasanPage() {
             </div>
           </div>
 
-          {/* ==================== 1. NASKAH SURAT TUGAS ==================== */}
+          {/* 1. SURAT TUGAS */}
           {activeTabNaskah === 'st' && (
             <div>
-              {/* JUDUL SURAT & NOMOR */}
               <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                 <div style={{ fontSize: '16pt', fontWeight: 'bold' }}>SURAT TUGAS</div>
                 <div style={{ fontSize: '12pt', marginTop: '2px' }}>NOMOR: {safeString(detail.nomor_surat)}</div>
               </div>
 
-              {/* TABEL DASAR HUKUM */}
               <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', fontSize: '12pt', lineHeight: 1.15 }}>
                 <tbody>
                   {listDasarWithDenganIni.map((dStr, dIdx) => (
@@ -328,12 +361,10 @@ export default function DetailProgresPenugasanPage() {
                 </tbody>
               </table>
 
-              {/* MEMERINTAHKAN: */}
               <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14pt', margin: '14px 0' }}>
                 MEMERINTAHKAN:
               </div>
 
-              {/* TABEL KEPADA */}
               <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', fontSize: '12pt', lineHeight: 1.15 }}>
                 <tbody>
                   {listPersonil.map((p, pIdx) => {
@@ -388,7 +419,6 @@ export default function DetailProgresPenugasanPage() {
                 </tbody>
               </table>
 
-              {/* TABEL UNTUK */}
               <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse', fontSize: '12pt', lineHeight: 1.15 }}>
                 <tbody>
                   <tr>
@@ -402,7 +432,6 @@ export default function DetailProgresPenugasanPage() {
                 </tbody>
               </table>
 
-              {/* PARAGRAF PENUTUP & INTEGRITAS */}
               <div style={{ textIndent: '1.59cm', textAlign: 'justify', marginBottom: '8px', lineHeight: 1.15 }}>
                 Sesuai prosedur, setelah melaksanakan kegiatan dimaksud agar melaporkan hasilnya kepada Plt. Inspektur Kabupaten Malang.
               </div>
@@ -413,9 +442,7 @@ export default function DetailProgresPenugasanPage() {
                 Demikian Surat Tugas ini disampaikan kepada yang bersangkutan untuk dilaksanakan dengan penuh tanggung jawab.
               </div>
 
-              {/* PARAF HIERARKI & BLOK TTD INSPEKTUR */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '16px' }}>
-                
                 {showParafHierarki ? (
                   <div style={{ border: '0.5pt solid #000', width: '6.86cm', fontSize: '8pt', fontFamily: 'Arial, sans-serif' }}>
                     <div style={{ backgroundColor: '#E9E9E9', fontWeight: 'bold', textAlign: 'center', padding: '3pt 0', borderBottom: '0.5pt solid #000' }}>
@@ -450,15 +477,13 @@ export default function DetailProgresPenugasanPage() {
                   Penata Tingkat I<br />
                   NIP 198008012010011018
                 </div>
-
               </div>
             </div>
           )}
 
-          {/* ==================== 2. NASKAH SPD HALAMAN DEPAN ==================== */}
+          {/* 2. SPD HALAMAN DEPAN */}
           {activeTabNaskah === 'spd_depan' && (
             <div>
-              {/* ATAS SPD: LEMBAR KE & NOMOR */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '11pt', marginBottom: '8px' }}>
                 <div style={{ width: '260px' }}>
                   <div style={{ display: 'flex' }}>
@@ -476,12 +501,10 @@ export default function DetailProgresPenugasanPage() {
                 </div>
               </div>
 
-              {/* JUDUL SPD */}
               <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14pt', margin: '12px 0 16px 0' }}>
                 SURAT PERJALANAN DINAS (SPD)
               </div>
 
-              {/* TABEL SPD 10 POIN (MURNI TANPA PARAF HIERARKI) */}
               <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10.5pt', lineHeight: 1.2 }} border="1" cellPadding="6">
                 <tbody>
                   <tr>
@@ -583,7 +606,6 @@ export default function DetailProgresPenugasanPage() {
                 </tbody>
               </table>
 
-              {/* TTD PENGGUNA ANGGARAN SPD DEPAN (MURNI TANPA PARAF) */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
                 <div style={{ width: '7.5cm', textAlign: 'left', fontSize: '11pt', lineHeight: 1.25 }}>
                   Dikeluarkan di : Singosari<br />
@@ -598,10 +620,9 @@ export default function DetailProgresPenugasanPage() {
             </div>
           )}
 
-          {/* ==================== 3. NASKAH SPD HALAMAN BELAKANG (VISUM) ==================== */}
+          {/* 3. SPD HALAMAN BELAKANG (VISUM) */}
           {activeTabNaskah === 'spd_belakang' && (
             <div>
-              {/* TABEL VISUM (POIN I s.d. V) */}
               <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10pt', lineHeight: 1.25 }} border="1" cellPadding="6">
                 <tbody>
                   <tr>
@@ -676,7 +697,6 @@ export default function DetailProgresPenugasanPage() {
                 </tbody>
               </table>
 
-              {/* KLAUSUL PERIKSA & PERHATIAN */}
               <div style={{ fontSize: '9.5pt', margin: '12px 0', textAlign: 'justify', lineHeight: 1.25 }}>
                 Telah diperiksa, dengan keterangan bahwa perjalanan tersebut diatas benar dilakukan atas perintahnya dan semata-mata untuk kepentingan jabatan dalam waktu yang sesingkat-singkatnya.
               </div>
@@ -690,7 +710,6 @@ export default function DetailProgresPenugasanPage() {
                 Pejabat yang berwenang menerbitkan SPPD, pegawai yang melakukan perjalanan dinas, para pejabat yang mengesahkan tanggal berangkat/tiba serta Bendaharawan bertanggung jawab berdasarkan peraturan-peraturan Keuangan Negara apabila Negara mendapat rugi akibat kesalahan, kealpaannya.
               </div>
 
-              {/* TTD PENGGUNA ANGGARAN VISUM (MURNI TANPA PARAF) */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
                 <div style={{ width: '7.5cm', textAlign: 'left', fontSize: '10.5pt', lineHeight: 1.25 }}>
                   <strong>Pengguna Anggaran</strong>
