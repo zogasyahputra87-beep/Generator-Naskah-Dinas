@@ -6,160 +6,151 @@ const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
 export default function DashboardPage() {
-  const [penugasanList, setPenugasanList] = useState([]);
+  const [listPenugasan, setListPenugasan] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?select=*&order=created_at.desc`, {
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setPenugasanList(data);
+  // Fetch Daftar Penugasan dari Supabase
+  const fetchPenugasan = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?select=*&order=created_at.desc`, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
         }
-      } catch (err) {
-        console.error('Gagal mengambil data penugasan:', err);
-      } finally {
-        setLoading(false);
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setListPenugasan(data);
       }
+    } catch (err) {
+      console.error('Gagal mengambil data penugasan:', err);
+    } finally {
+      setLoading(false);
     }
-    fetchDashboardData();
+  };
+
+  useEffect(() => {
+    fetchPenugasan();
   }, []);
 
-  // Filter Search berdasarkan Nomor, Maksud, atau Objek
-  const filteredPenugasan = penugasanList.filter((item) => {
-    const q = searchQuery.toLowerCase();
-    const nomor = (item.nomor_surat || '').toLowerCase();
-    const maksud = (item.maksud_penugasan || '').toLowerCase();
-    const objek = (item.tempat_tujuan || '').toLowerCase();
+  // FITUR HAPUS PENUGASAN (TERMASUK PERCOBAAN/TESTING)
+  const handleHapusPenugasan = async (id, nomorSurat) => {
+    const konfirmasi = window.confirm(`Apakah Anda yakin ingin menghapus data penugasan nomor:\n"${nomorSurat || id}"?`);
+    if (!konfirmasi) return;
 
-    return nomor.includes(q) || maksud.includes(q) || objek.includes(q);
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      });
+
+      if (response.ok) {
+        alert('Data penugasan berhasil dihapus!');
+        // Refresh daftar penugasan setelah dihapus
+        setListPenugasan(listPenugasan.filter(item => item.id !== id));
+      } else {
+        alert('Gagal menghapus data penugasan.');
+      }
+    } catch (err) {
+      console.error('Error hapus:', err);
+      alert('Terjadi kesalahan koneksi saat menghapus.');
+    }
+  };
+
+  // Filter Pencarian
+  const filteredData = listPenugasan.filter(item => {
+    const query = searchQuery.toLowerCase();
+    const nomor = String(item.nomor_surat || '').toLowerCase();
+    const maksud = String(item.maksud_penugasan || '').toLowerCase();
+    const tujuan = String(item.tempat_tujuan || '').toLowerCase();
+    return nomor.includes(query) || maksud.includes(query) || tujuan.includes(query);
   });
 
-  const totalPenugasan = penugasanList.length;
-  const dalamProses = penugasanList.filter(p => p.status !== 'Selesai TLHP').length;
-  const selesai = penugasanList.filter(p => p.status === 'Selesai TLHP').length;
-
   return (
-    <div style={{ padding: '10px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif' }}>
       
       {/* HEADER DASHBOARD */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '24px', color: '#1a202c' }}>Dashboard Penugasan</h1>
-          <p style={{ margin: '4px 0 0 0', color: '#718096', fontSize: '14px' }}>Sistem Informasi Pengawasan & Naskah Dinas Inspektorat</p>
+          <h1 style={{ margin: 0, fontSize: '24px', color: '#1a202c' }}>Dashboard Penugasan & SPD</h1>
+          <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#718096' }}>Inspektorat Daerah Kabupaten Malang</p>
         </div>
+
         <Link href="/penugasan/baru" style={{ backgroundColor: '#2b6cb0', color: '#fff', padding: '10px 18px', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px' }}>
           + Buat Penugasan Baru
         </Link>
       </div>
 
-      {/* STATISTIK RINGKASAN */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
-          <span style={{ fontSize: '12px', color: '#718096', fontWeight: 'bold' }}>TOTAL PENUGASAN</span>
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#2d3748', marginTop: '6px' }}>{totalPenugasan}</div>
-        </div>
-        <div style={{ backgroundColor: '#fff', border: '1px solid #feebc8', borderRadius: '8px', padding: '16px', borderLeft: '4px solid #dd6b20' }}>
-          <span style={{ fontSize: '12px', color: '#dd6b20', fontWeight: 'bold' }}>SEDANG BERJALAN</span>
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#dd6b20', marginTop: '6px' }}>{dalamProses}</div>
-        </div>
-        <div style={{ backgroundColor: '#fff', border: '1px solid #c6f6d5', borderRadius: '8px', padding: '16px', borderLeft: '4px solid #38a169' }}>
-          <span style={{ fontSize: '12px', color: '#38a169', fontWeight: 'bold' }}>SELESAI (TLHP)</span>
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#38a169', marginTop: '6px' }}>{selesai}</div>
-        </div>
+      {/* BAR PENCARIAN */}
+      <div style={{ marginBottom: '20px' }}>
+        <input 
+          type="text"
+          placeholder="🔍 Cari nomor surat, maksud audit, atau tempat tujuan..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ width: '100%', padding: '12px 16px', borderRadius: '6px', border: '1px solid #cbd5e0', fontSize: '14px', boxSizing: 'border-box' }}
+        />
       </div>
 
-      {/* KONTEN TABEL & FITUR SEARCH */}
-      <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f7fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ fontWeight: 'bold', color: '#2d3748', fontSize: '15px' }}>
-            Daftar Progres Penugasan Aktif
+      {/* TABEL DAFTAR PENUGASAN */}
+      <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#718096' }}>Memuat data penugasan...</div>
+        ) : filteredData.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#a0aec0' }}>
+            {searchQuery ? 'Tidak ada data yang cocok dengan pencarian.' : 'Belum ada data penugasan.'}
           </div>
-
-          {/* INPUT FITUR SEARCH */}
-          <div style={{ position: 'relative', minWidth: '320px' }}>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="🔍 Cari nomor, maksud, atau objek penugasan..."
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e0',
-                fontSize: '13px',
-                boxSizing: 'border-box'
-              }}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                style={{ position: 'absolute', right: '10px', top: '7px', border: 'none', background: 'none', cursor: 'pointer', color: '#a0aec0', fontWeight: 'bold' }}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        </div>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#edf2f7', color: '#4a5568' }}>
-              <th style={{ padding: '12px 16px' }}>No. Surat / Penugasan</th>
-              <th style={{ padding: '12px 16px' }}>Maksud Penugasan</th>
-              <th style={{ padding: '12px 16px' }}>Objek / Obyek Pengawasan</th>
-              <th style={{ padding: '12px 16px' }}>Tahapan Progres</th>
-              <th style={{ padding: '12px 16px', textAlign: 'center' }}>Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#a0aec0' }}>Memuat data penugasan...</td>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f7fafc', borderBottom: '1px solid #e2e8f0', color: '#4a5568' }}>
+                <th style={{ padding: '12px 16px', width: '50px' }}>No</th>
+                <th style={{ padding: '12px 16px', width: '180px' }}>Nomor Surat</th>
+                <th style={{ padding: '12px 16px' }}>Maksud Penugasan</th>
+                <th style={{ padding: '12px 16px', width: '180px' }}>Tempat Tujuan</th>
+                <th style={{ padding: '12px 16px', width: '120px' }}>Tgl. Surat</th>
+                <th style={{ padding: '12px 16px', width: '160px', textAlign: 'center' }}>Aksi</th>
               </tr>
-            ) : filteredPenugasan.length === 0 ? (
-              <tr>
-                <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#a0aec0' }}>
-                  {searchQuery ? `Tidak ada penugasan yang cocok dengan "${searchQuery}"` : 'Belum ada penugasan terdaftar.'}
-                </td>
-              </tr>
-            ) : (
-              filteredPenugasan.map((item) => (
-                <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+            </thead>
+            <tbody>
+              {filteredData.map((item, index) => (
+                <tr key={item.id} style={{ borderBottom: '1px solid #edf2f7' }}>
+                  <td style={{ padding: '12px 16px' }}>{index + 1}</td>
                   <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#2b6cb0' }}>{item.nomor_surat || '-'}</td>
-                  <td style={{ padding: '12px 16px' }}>{item.maksud_penugasan}</td>
-                  <td style={{ padding: '12px 16px' }}>{item.tempat_tujuan}</td>
-                  <td style={{ padding: '12px 16px' }}>
-                    <span style={{ 
-                      padding: '4px 10px', 
-                      borderRadius: '12px', 
-                      fontSize: '12px', 
-                      fontWeight: 'bold',
-                      backgroundColor: item.status === 'Selesai TLHP' ? '#c6f6d5' : '#feebc8',
-                      color: item.status === 'Selesai TLHP' ? '#22543d' : '#744210'
-                    }}>
-                      {item.status || 'Surat Tugas'}
-                    </span>
-                  </td>
+                  <td style={{ padding: '12px 16px' }}>{item.maksud_penugasan || '-'}</td>
+                  <td style={{ padding: '12px 16px' }}>{item.tempat_tujuan || '-'}</td>
+                  <td style={{ padding: '12px 16px' }}>{item.tanggal_surat || '-'}</td>
                   <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                    <Link href={`/penugasan/${item.id}`} style={{ color: '#2b6cb0', textDecoration: 'none', fontWeight: 'bold' }}>
-                      Detail & Progres →
-                    </Link>
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                      
+                      {/* TOMBOL LIHAT NASKAH */}
+                      <Link 
+                        href={`/penugasan/${item.id}`} 
+                        style={{ backgroundColor: '#edf2f7', color: '#2b6cb0', border: '1px solid #cbd5e0', padding: '6px 10px', borderRadius: '4px', textDecoration: 'none', fontWeight: 'bold', fontSize: '12px' }}
+                      >
+                        📄 Buka
+                      </Link>
+
+                      {/* TOMBOL HAPUS DATA PERCOBAAN */}
+                      <button
+                        onClick={() => handleHapusPenugasan(item.id, item.nomor_surat)}
+                        style={{ backgroundColor: '#fff5f5', color: '#e53e3e', border: '1px solid #feb2b2', padding: '6px 10px', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
+                      >
+                        🗑️ Hapus
+                      </button>
+
+                    </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
     </div>
