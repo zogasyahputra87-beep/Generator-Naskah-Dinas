@@ -2,109 +2,168 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
-
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleLogin = async (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
     setLoading(true);
-    setErrorMsg('');
 
-    try {
-      // Cek akun ke tabel users di Supabase
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/users?username=eq.${encodeURIComponent(username)}&password=eq.${encodeURIComponent(password)}&select=*`,
-        {
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.length > 0) {
-          // Login Berhasil
-          const user = data[0];
-          localStorage.setItem('user_session', JSON.stringify({
-            id: user.id,
-            username: user.username,
-            nama_lengkap: user.nama_lengkap,
-            role: user.role
-          }));
-          
-          router.push('/dashboard');
-        } else {
-          setErrorMsg('Username atau password salah!');
-        }
-      } else {
-        setErrorMsg('Gagal terhubung ke database.');
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setErrorMsg('Terjadi kesalahan koneksi.');
-    } finally {
+    // Simulasi Login Singkat
+    setTimeout(() => {
       setLoading(false);
-    }
+      router.push('/dashboard');
+    }, 800);
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f7fafc', fontFamily: 'sans-serif' }}>
-      <div style={{ width: '100%', maxWidth: '400px', backgroundColor: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, rgba(241, 245, 249, 1) 90%), linear-gradient(135deg, #e0e7ff 0%, #f8fafc 100%)',
+      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      padding: '20px'
+    }}>
+      <style jsx global>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-card {
+          animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .input-focus:focus {
+          border-color: #6366f1 !important;
+          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15) !important;
+        }
+        .btn-gradient {
+          background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+          transition: all 0.25s ease;
+        }
+        .btn-gradient:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.4);
+        }
+      `}</style>
+
+      <div className="animate-card" style={{
+        width: '100%',
+        maxWidth: '440px',
+        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        backdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.8)',
+        borderRadius: '20px',
+        padding: '40px 32px',
+        boxShadow: '0 20px 40px -15px rgba(30, 27, 75, 0.08), 0 0 1px 1px rgba(255,255,255,0.9) inset'
+      }}>
         
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <h2 style={{ margin: 0, color: '#1a202c', fontSize: '20px' }}>Sistem Naskah Dinas</h2>
-          <p style={{ margin: '4px 0 0 0', color: '#718096', fontSize: '13px' }}>Inspektorat Daerah Kabupaten Malang</p>
+        {/* LOGO & BRANDING */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            margin: '0 auto 16px auto',
+            background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.4)'
+          }}>
+            <img src="/logo-kab-malang.png" alt="Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '38px', height: 'auto' }} />
+            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '24px' }}>🏛️</span>
+          </div>
+          <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#1e1b4b', letterSpacing: '-0.5px' }}>
+            SIM-PENUGASAN
+          </h2>
+          <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#64748b', fontWeight: '500' }}>
+            Inspektorat Daerah Kabupaten Malang
+          </p>
         </div>
 
-        {errorMsg && (
-          <div style={{ backgroundColor: '#fed7d7', color: '#9b2c2c', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '16px', textAlign: 'center' }}>
-            {errorMsg}
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* FORM LOGIN */}
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#4a5568', marginBottom: '4px' }}>Username</label>
-            <input 
-              type="text" 
-              value={username} 
-              onChange={(e) => setUsername(e.target.value)} 
-              placeholder="Masukkan username" 
-              required 
-              style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #cbd5e0', boxSizing: 'border-box' }}
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Username / NIP
+            </label>
+            <input
+              type="text"
+              placeholder="Masukkan NIP atau Username..."
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="input-focus"
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                fontSize: '14px',
+                outline: 'none',
+                backgroundColor: '#fff',
+                boxSizing: 'border-box',
+                transition: 'all 0.2s'
+              }}
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#4a5568', marginBottom: '4px' }}>Password</label>
-            <input 
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              placeholder="Masukkan password" 
-              required 
-              style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #cbd5e0', boxSizing: 'border-box' }}
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Kata Sandi
+            </label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="input-focus"
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                fontSize: '14px',
+                outline: 'none',
+                backgroundColor: '#fff',
+                boxSizing: 'border-box',
+                transition: 'all 0.2s'
+              }}
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
-            style={{ backgroundColor: '#2b6cb0', color: '#fff', padding: '12px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px', marginTop: '8px' }}
+            className="btn-gradient"
+            style={{
+              marginTop: '10px',
+              padding: '14px',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '10px',
+              fontWeight: '700',
+              fontSize: '15px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
           >
-            {loading ? 'Memeriksa Akun...' : 'Masuk Aplikasi'}
+            {loading ? 'Memproses Masuk...' : 'Masuk ke Aplikasi Portal →'}
           </button>
         </form>
 
+        <div style={{ marginTop: '28px', textAlign: 'center', fontSize: '12px', color: '#94a3b8' }}>
+          Portal Layanan Naskah Dinas & Audit Sistem Internal
+        </div>
       </div>
     </div>
   );
