@@ -33,15 +33,13 @@ function formatTanggalIndo(tanggalStr) {
   }
 }
 
-// FUNGSI PEMBANTU: MENAMBAHKAN ", dengan ini:" PADA DASAR HUKUM TERAKHIR
+// LOGIKA OTOMATIS TAMBAH ", dengan ini:" PADA DASAR HUKUM TERAKHIR
 function appendDenganIni(listText) {
   if (!Array.isArray(listText) || listText.length === 0) return [];
   return listText.map((item, idx) => {
     let textStr = typeof item === 'object' ? (item?.dasar_hukum || item?.teks || '') : String(item || '');
-    // Hapus titik atau koma atau spasi di paling akhir jika ada
     textStr = textStr.trim().replace(/[.;,]+$/, '');
     
-    // Jika item terakhir, tempelkan ", dengan ini:"
     if (idx === listText.length - 1) {
       return `${textStr}, dengan ini:`;
     }
@@ -63,30 +61,18 @@ export default function DetailProgresPenugasanPage() {
   const [spdPageType, setSpdPageType] = useState('depan');
   const [showSPDConsole, setShowSPDConsole] = useState(false);
 
-  // Console State Khusus Isian SPD (Default: Inspektorat Daerah Kab. Malang)
+  // Form Isian SPD (Default PA & Lokasi Fleksibel)
   const [spdForm, setSpdForm] = useState({
     nomor_spd: '',
     pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
     nip_pa: '198008012010011018',
-    tempat_berangkat: 'Inspektorat Daerah Kab. Malang',
-    tempat_tujuan: '-',
-    tempat_kembali: 'Inspektorat Daerah Kab. Malang',
+    tempat_berangkat: 'Inspektorat Daerah Kabupaten Malang',
+    tempat_tujuan: '',
+    tempat_kembali: 'Inspektorat Daerah Kabupaten Malang',
     tgl_spd: '-',
     tgl_berangkat: '-',
     tgl_kembali: '-',
     personil_spd: []
-  });
-
-  // Modal Edit General Penugasan
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    nomor_surat: '',
-    maksud_penugasan: '',
-    tempat_tujuan: '',
-    tanggal_surat: '',
-    tanggal_spd: '',
-    dasar_hukum: [],
-    personil: [],
   });
 
   useEffect(() => {
@@ -123,8 +109,6 @@ export default function DetailProgresPenugasanPage() {
     if (!item) return;
 
     const rawPersonil = Array.isArray(item.personil) ? JSON.parse(JSON.stringify(item.personil)) : [];
-    
-    // Normalisasi Personil
     const personilFormatted = rawPersonil.map((p, idx) => {
       if (typeof p === 'string') {
         return { nama: p, nip: '', pangkat_gol: '', jabatan: '', peran: idx === 0 ? 'Ketua Tim' : 'Anggota Tim' };
@@ -138,38 +122,21 @@ export default function DetailProgresPenugasanPage() {
       };
     });
 
-    const rawDasar = Array.isArray(item.dasar_hukum) ? item.dasar_hukum : [];
-    const dasarFormatted = rawDasar.map(d => typeof d === 'object' ? (d?.dasar_hukum || d?.teks || JSON.stringify(d)) : String(d || ''));
-
-    // Gunakan dasar hukum dari DB atau default jika kosong
-    const finalDasarList = dasarFormatted.length > 0 ? dasarFormatted : DASAR_HUKUM_DEFAULT;
-
-    // Init Form Edit Utama
-    setEditForm({
-      nomor_surat: item.nomor_surat || '',
-      maksud_penugasan: item.maksud_penugasan || '',
-      tempat_tujuan: item.tempat_tujuan || '',
-      tanggal_surat: item.tanggal_surat || '',
-      tanggal_spd: item.tanggal_spd || item.tanggal_surat || '',
-      dasar_hukum: finalDasarList,
-      personil: personilFormatted,
-    });
-
-    // Init Form Console SPD dengan Default "Inspektorat Daerah Kab. Malang"
+    // Console SPD Init
     const personilSpdFormatted = personilFormatted.map((p) => ({
       ...p,
       no_spd_khusus: item.nomor_surat || '',
       tingkat_biaya: 'Tingkat C',
-      alat_angkut: 'Kendaraan Dinas / Umum'
+      alat_angkut: 'Angkutan Darat'
     }));
 
     setSpdForm({
       nomor_spd: item.nomor_surat || '',
       pengguna_anggaran: 'ARRIE HENDRAWAN MAHADHIEKA, S.H.',
       nip_pa: '198008012010011018',
-      tempat_berangkat: item.tempat_berangkat || 'Inspektorat Daerah Kab. Malang',
+      tempat_berangkat: item.tempat_berangkat || 'Inspektorat Daerah Kabupaten Malang',
       tempat_tujuan: item.tempat_tujuan || '',
-      tempat_kembali: item.tempat_kembali || 'Inspektorat Daerah Kab. Malang',
+      tempat_kembali: item.tempat_kembali || 'Inspektorat Daerah Kabupaten Malang',
       tgl_spd: item.tanggal_spd || item.tanggal_surat || '',
       tgl_berangkat: item.tanggal_surat || '',
       tgl_kembali: item.tanggal_surat || '',
@@ -177,7 +144,7 @@ export default function DetailProgresPenugasanPage() {
     });
   };
 
-  // HANDLER SIMPAN CONSOLE SPD KHUSUS
+  // HANDLER SIMPAN CONSOLE SPD
   const handleSaveSPDConsole = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -185,6 +152,7 @@ export default function DetailProgresPenugasanPage() {
       const payloadToSave = {
         tanggal_spd: spdForm.tgl_spd,
         tempat_berangkat: spdForm.tempat_berangkat,
+        tempat_tujuan: spdForm.tempat_tujuan,
         tempat_kembali: spdForm.tempat_kembali,
         personil: spdForm.personil_spd
       };
@@ -225,9 +193,7 @@ export default function DetailProgresPenugasanPage() {
       ? detail.dasar_hukum 
       : DASAR_HUKUM_DEFAULT;
       
-    // Tambahkan otomatis ", dengan ini:" pada dasar hukum terakhir
     const dasarProcessed = appendDenganIni(rawDasar);
-
     const dasarListClean = dasarProcessed.map((dStr, idx) => ({
       no: idx + 1,
       dasar_hukum: dStr
@@ -274,7 +240,7 @@ export default function DetailProgresPenugasanPage() {
         a.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        alert('Gagal mengunduh Surat Tugas. Cek log server.');
+        alert('Gagal mengunduh Surat Tugas.');
       }
     } catch (err) {
       alert('Terjadi kesalahan koneksi.');
@@ -373,13 +339,9 @@ export default function DetailProgresPenugasanPage() {
   if (!detail) return <div style={{ padding: '60px', textAlign: 'center', fontFamily: 'sans-serif', color: '#e53e3e' }}>Data penugasan tidak ditemukan.</div>;
 
   const listPersonil = Array.isArray(detail.personil) ? detail.personil : [];
-  
-  // Ambil Dasar Hukum (Gunakan default jika kosong)
   const rawListDasar = Array.isArray(detail.dasar_hukum) && detail.dasar_hukum.length > 0 
     ? detail.dasar_hukum 
     : DASAR_HUKUM_DEFAULT;
-    
-  // Tambahkan ", dengan ini:" pada item terakhir untuk tampilan pratinjau web
   const listDasarWithDenganIni = appendDenganIni(rawListDasar);
 
   return (
@@ -403,13 +365,6 @@ export default function DetailProgresPenugasanPage() {
               {safeString(detail.maksud_penugasan)}
             </h1>
           </div>
-
-          <button 
-            onClick={() => setIsEditing(true)}
-            style={{ backgroundColor: '#ed8936', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-          >
-            ✏️ Edit Surat Tugas Utama
-          </button>
         </div>
 
         <div style={{ padding: '20px' }}>
@@ -421,21 +376,14 @@ export default function DetailProgresPenugasanPage() {
                 <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#2b6cb0' }}>{safeString(detail.nomor_surat)}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Tempat Tujuan Pengawasan</td>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Lokasi Tujuan Perjalanan Dinas</td>
                 <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#1a202c' }}>{safeString(detail.tempat_tujuan)}</td>
+                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#1a202c' }}>{spdForm.tempat_tujuan || detail.tempat_tujuan || '-'}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #edf2f7' }}>
                 <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Tanggal Surat / Pelaksanaan</td>
                 <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
                 <td style={{ padding: '8px 0', color: '#2d3748' }}>{formatTanggalIndo(detail.tanggal_surat)}</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid #edf2f7' }}>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568' }}>Tanggal Penandatanganan SPD</td>
-                <td style={{ padding: '8px 0', color: '#a0aec0' }}>:</td>
-                <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#38a169' }}>
-                  {formatTanggalIndo(spdForm.tgl_spd || detail.tanggal_spd || detail.tanggal_surat)}
-                </td>
               </tr>
               <tr>
                 <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#4a5568', verticalAlign: 'top' }}>Daftar Personil Penugasan</td>
@@ -487,12 +435,12 @@ export default function DetailProgresPenugasanPage() {
       {activeStep === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* SURAT TUGAS PREVIEW */}
+          {/* SURAT TUGAS PREVIEW CONTAINER */}
           <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #edf2f7', paddingBottom: '12px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '16px', color: '#2b6cb0' }}>📄 Pratinjau Naskah Surat Tugas</h3>
-                <span style={{ fontSize: '12px', color: '#718096' }}>Tampilan fisik naskah dinas Surat Tugas</span>
+                <span style={{ fontSize: '12px', color: '#718096' }}>Tampilan fisik naskah dinas resmi Inspektorat Daerah</span>
               </div>
 
               <button 
@@ -506,6 +454,7 @@ export default function DetailProgresPenugasanPage() {
             <div style={{ backgroundColor: '#f7fafc', padding: '24px', borderRadius: '6px', border: '1px solid #cbd5e0', overflowX: 'auto' }}>
               <div style={{ width: '100%', maxWidth: '750px', margin: '0 auto', backgroundColor: '#fff', padding: '40px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#000', lineHeight: 1.5 }}>
                 
+                {/* KOP SURAT RESMI WITH LOGO PNG */}
                 <div style={{ display: 'flex', alignItems: 'center', borderBottom: '3px double #000', paddingBottom: '8px', marginBottom: '16px' }}>
                   <img src="/logo-kab-malang.png" alt="Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '70px', height: 'auto', marginRight: '16px' }} />
                   <div style={{ flex: 1, textAlign: 'center' }}>
@@ -518,77 +467,150 @@ export default function DetailProgresPenugasanPage() {
                   </div>
                 </div>
 
+                {/* JUDUL SURAT & NOMOR */}
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                   <div style={{ fontSize: '14px', fontWeight: 'bold', textDecoration: 'underline' }}>SURAT TUGAS</div>
                   <div style={{ fontSize: '12px' }}>NOMOR: {safeString(detail.nomor_surat)}</div>
                 </div>
 
+                {/* TABEL DASAR HUKUM */}
                 <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse' }}>
                   <tbody>
-                    <tr>
-                      <td style={{ width: '80px', fontWeight: 'bold', verticalAlign: 'top' }}>Dasar</td>
-                      <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
-                      <td style={{ verticalAlign: 'top' }}>
-                        <ol style={{ margin: 0, paddingLeft: '16px' }}>
-                          {listDasarWithDenganIni.map((dStr, dIdx) => (
-                            <li key={dIdx} style={{ marginBottom: '4px' }}>{dStr}</li>
-                          ))}
-                        </ol>
-                      </td>
-                    </tr>
+                    {listDasarWithDenganIni.map((dStr, dIdx) => (
+                      <tr key={dIdx}>
+                        {dIdx === 0 ? (
+                          <>
+                            <td style={{ width: '80px', fontWeight: 'bold', verticalAlign: 'top', paddingBottom: '4px' }}>Dasar</td>
+                            <td style={{ width: '15px', verticalAlign: 'top', paddingBottom: '4px' }}>:</td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ width: '80px' }}></td>
+                            <td style={{ width: '15px' }}></td>
+                          </>
+                        )}
+                        <td style={{ width: '25px', verticalAlign: 'top', paddingBottom: '4px' }}>{dIdx + 1}.</td>
+                        <td style={{ verticalAlign: 'top', paddingBottom: '4px', textAlign: 'justify' }}>{dStr}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
 
-                <div style={{ textAlign: 'center', fontWeight: 'bold', margin: '16px 0' }}>MEMERINTAHKAN:</div>
+                {/* KATA MEMERINTAHKAN */}
+                <div style={{ textAlign: 'center', fontWeight: 'bold', margin: '20px 0' }}>MEMERINTAHKAN:</div>
 
+                {/* TABEL KEPADA (PEGAWAI) */}
                 <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse' }}>
                   <tbody>
-                    <tr>
-                      <td style={{ width: '80px', fontWeight: 'bold', verticalAlign: 'top' }}>Kepada</td>
-                      <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
-                      <td style={{ verticalAlign: 'top' }}>
-                        {listPersonil.map((p, pIdx) => {
-                          const pNama = typeof p === 'object' ? (p?.nama || '-') : String(p || '-');
-                          const pNip = typeof p === 'object' ? (p?.nip || '-') : '-';
-                          const pGol = typeof p === 'object' ? (p?.pangkat_gol || '-') : '-';
-                          const pJab = typeof p === 'object' ? (p?.jabatan || '-') : '-';
-                          
-                          return (
-                            <div key={pIdx} style={{ marginBottom: '12px' }}>
-                              <strong>{pIdx + 1}. Nama</strong> : {pNama}<br />
-                              &nbsp;&nbsp;&nbsp;&nbsp;<strong>NIP</strong> : {pNip}<br />
-                              &nbsp;&nbsp;&nbsp;&nbsp;<strong>Pangkat/Gol</strong> : {pGol}<br />
-                              &nbsp;&nbsp;&nbsp;&nbsp;<strong>Jabatan</strong> : {pJab}
-                            </div>
-                          );
-                        })}
-                      </td>
-                    </tr>
+                    {listPersonil.map((p, pIdx) => {
+                      const pNama = typeof p === 'object' ? (p?.nama || '-') : String(p || '-');
+                      const pNip = typeof p === 'object' ? (p?.nip || '-') : '-';
+                      const pGol = typeof p === 'object' ? (p?.pangkat_gol || '-') : '-';
+                      const pJab = typeof p === 'object' ? (p?.jabatan || '-') : '-';
+
+                      return (
+                        <tr key={pIdx}>
+                          {pIdx === 0 ? (
+                            <>
+                              <td style={{ width: '80px', fontWeight: 'bold', verticalAlign: 'top', paddingBottom: '12px' }}>Kepada</td>
+                              <td style={{ width: '15px', verticalAlign: 'top', paddingBottom: '12px' }}>:</td>
+                            </>
+                          ) : (
+                            <>
+                              <td style={{ width: '80px' }}></td>
+                              <td style={{ width: '15px' }}></td>
+                            </>
+                          )}
+                          <td style={{ width: '25px', verticalAlign: 'top', paddingBottom: '12px' }}>{pIdx + 1}.</td>
+                          <td style={{ verticalAlign: 'top', paddingBottom: '12px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <tbody>
+                                <tr>
+                                  <td style={{ width: '100px' }}>Nama</td>
+                                  <td style={{ width: '15px' }}>:</td>
+                                  <td><strong>{pNama}</strong></td>
+                                </tr>
+                                <tr>
+                                  <td>NIP.</td>
+                                  <td>:</td>
+                                  <td>{pNip}</td>
+                                </tr>
+                                <tr>
+                                  <td>Pangkat/Gol</td>
+                                  <td>:</td>
+                                  <td>{pGol}</td>
+                                </tr>
+                                <tr>
+                                  <td>Jabatan</td>
+                                  <td>:</td>
+                                  <td>{pJab}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
 
-                <table style={{ width: '100%', marginBottom: '24px', borderCollapse: 'collapse' }}>
+                {/* TABEL UNTUK */}
+                <table style={{ width: '100%', marginBottom: '20px', borderCollapse: 'collapse' }}>
                   <tbody>
                     <tr>
                       <td style={{ width: '80px', fontWeight: 'bold', verticalAlign: 'top' }}>Untuk</td>
                       <td style={{ width: '15px', verticalAlign: 'top' }}>:</td>
-                      <td style={{ verticalAlign: 'top' }}>
-                        {safeString(detail.maksud_penugasan)} di {safeString(detail.tempat_tujuan)}.
+                      <td style={{ verticalAlign: 'top', textAlign: 'justify', whiteSpace: 'pre-line' }}>
+                        {safeString(detail.maksud_penugasan)}
+                        {detail.tempat_tujuan ? `\nbertempat di ${detail.tempat_tujuan}.` : ''}
                       </td>
                     </tr>
                   </tbody>
                 </table>
 
-                <div style={{ float: 'right', width: '300px', textAlign: 'left', marginTop: '20px' }}>
-                  Dikeluarkan di Singosari<br />
-                  Pada tanggal {formatTanggalIndo(detail.tanggal_surat)}<br /><br />
-                  <strong>INSPEKTUR DAERAH KABUPATEN MALANG</strong>
-                  <br /><br /><br /><br />
-                  <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
-                  Pembina Utama Muda<br />
-                  NIP. 198008012010011018
+                {/* PARAGRAF PENUTUP & KLAUSUL INTEGRITAS */}
+                <div style={{ textAlign: 'justify', marginBottom: '12px', lineHeight: '1.6' }}>
+                  Sesuai prosedur, setelah melaksanakan kegiatan dimaksud agar melaporkan hasilnya kepada Plt. Inspektur Kabupaten Malang.
                 </div>
-                <div style={{ clear: 'both' }}></div>
+                <div style={{ textAlign: 'justify', marginBottom: '12px', lineHeight: '1.6' }}>
+                  Selanjutnya dalam upaya menjaga integritas, ASN Inspektorat Daerah dalam melaksanakan tugas <strong>tidak menerima Gratifikasi dan Suap serta tidak memungut biaya apapun atas pelayanan yang diberikan</strong>.
+                </div>
+                <div style={{ textAlign: 'justify', marginBottom: '28px', lineHeight: '1.6' }}>
+                  Demikian Surat Tugas ini disampaikan kepada yang bersangkutan untuk dilaksanakan dengan penuh tanggung jawab.
+                </div>
+
+                {/* PARAF HIERARKI & TTD INSPEKTUR */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '20px' }}>
+                  
+                  {/* KOTAK PARAF HIERARKI */}
+                  <div style={{ border: '1px solid #000', padding: '6px', fontSize: '10px', width: '220px' }}>
+                    <div style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '4px', borderBottom: '1px solid #000', paddingBottom: '2px' }}>
+                      PARAF HIERARKI
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: '2px 0' }}>Sekretaris</td>
+                          <td style={{ textAlign: 'right' }}>: ......</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '2px 0' }}>Inspektur Pembantu Wilayah I</td>
+                          <td style={{ textAlign: 'right' }}>: ......</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* BLOK TANDA TANGAN */}
+                  <div style={{ width: '280px', textAlign: 'left' }}>
+                    Malang, {formatTanggalIndo(detail.tanggal_surat)}<br />
+                    <strong>Plt. Inspektur Kabupaten Malang</strong>
+                    <br /><br /><br /><br />
+                    <strong><u>ARRIE HENDRAWAN MAHADHIEKA, S.H.</u></strong><br />
+                    Penata Tingkat I<br />
+                    NIP. 198008012010011018
+                  </div>
+                </div>
 
               </div>
             </div>
@@ -669,7 +691,7 @@ export default function DetailProgresPenugasanPage() {
                         </div>
 
                         <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', textDecoration: 'underline', marginBottom: '16px' }}>
-                          SURAT PERJALANAN DINAS (S.P.D)
+                          SURAT PERJALANAN DINAS (SPD)
                         </div>
 
                         <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }} border="1" cellPadding="6">
@@ -682,12 +704,12 @@ export default function DetailProgresPenugasanPage() {
                             <tr>
                               <td style={{ textAlign: 'center' }}>2.</td>
                               <td>Nama Pegawai yang diperintah</td>
-                              <td><strong>{pNama}</strong></td>
+                              <td><strong>{pNama}</strong><br />NIP. {pNip}</td>
                             </tr>
                             <tr>
                               <td style={{ textAlign: 'center' }}>3.</td>
-                              <td>a. Pangkat dan Golongan<br />b. Jabatan</td>
-                              <td>a. {pGol}<br />b. {pJab}</td>
+                              <td>a. Pangkat dan Golongan<br />b. Jabatan<br />c. Tingkat Biaya Perjalanan Dinas</td>
+                              <td>a. {pGol}<br />b. {pJab}<br />c. Tingkat C</td>
                             </tr>
                             <tr>
                               <td style={{ textAlign: 'center' }}>4.</td>
@@ -696,18 +718,23 @@ export default function DetailProgresPenugasanPage() {
                             </tr>
                             <tr>
                               <td style={{ textAlign: 'center' }}>5.</td>
-                              <td>Tempat Berangkat / Tujuan</td>
-                              <td><strong>{spdForm.tempat_berangkat}</strong> / <strong>{spdForm.tempat_tujuan || detail.tempat_tujuan}</strong></td>
+                              <td>Alat angkutan yang dipergunakan</td>
+                              <td>Angkutan Darat</td>
                             </tr>
                             <tr>
                               <td style={{ textAlign: 'center' }}>6.</td>
-                              <td>Tanggal Berangkat / Kembali</td>
-                              <td>{formatTanggalIndo(spdForm.tgl_berangkat || detail.tanggal_surat)} s.d {formatTanggalIndo(spdForm.tgl_kembali || detail.tanggal_surat)}</td>
+                              <td>a. Tempat berangkat<br />b. Tempat tujuan</td>
+                              <td>a. <strong>{spdForm.tempat_berangkat}</strong><br />b. <strong>{spdForm.tempat_tujuan || detail.tempat_tujuan || '-'}</strong></td>
                             </tr>
                             <tr>
                               <td style={{ textAlign: 'center' }}>7.</td>
-                              <td>Tanggal Dikeluarkan SPD</td>
-                              <td><strong>{formatTanggalIndo(spdForm.tgl_spd || detail.tanggal_spd || detail.tanggal_surat)}</strong></td>
+                              <td>a. Lamanya Perjalanan Dinas<br />b. Tanggal berangkat<br />c. Tanggal harus kembali</td>
+                              <td>a. 1 (satu) hari<br />b. {formatTanggalIndo(spdForm.tgl_berangkat || detail.tanggal_surat)}<br />c. {formatTanggalIndo(spdForm.tgl_kembali || detail.tanggal_surat)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'center' }}>8.</td>
+                              <td>Pembebanan Anggaran<br />a. SKPD<br />b. Akun</td>
+                              <td><br />a. Inspektorat Daerah Kabupaten Malang<br />b. -</td>
                             </tr>
                           </tbody>
                         </table>
@@ -733,7 +760,7 @@ export default function DetailProgresPenugasanPage() {
                                 <strong>I. Berangkat dari</strong> : {spdForm.tempat_berangkat}<br />
                                 <strong>Ke</strong> : {spdForm.tempat_tujuan || detail.tempat_tujuan}<br />
                                 <strong>Pada Tanggal</strong> : {formatTanggalIndo(spdForm.tgl_berangkat || detail.tanggal_surat)}<br /><br />
-                                Pengguna Anggaran,<br /><br /><br />
+                                Plt. Inspektur Kabupaten Malang,<br /><br /><br />
                                 <strong><u>{spdForm.pengguna_anggaran}</u></strong><br />
                                 NIP. {spdForm.nip_pa}
                               </td>
@@ -757,7 +784,7 @@ export default function DetailProgresPenugasanPage() {
                               <td style={{ verticalAlign: 'top' }}>
                                 <strong>Tiba di</strong> : {spdForm.tempat_kembali}<br />
                                 <strong>Pada Tanggal</strong> : {formatTanggalIndo(spdForm.tgl_kembali || detail.tanggal_surat)}<br /><br />
-                                Pengguna Anggaran,<br /><br /><br />
+                                Plt. Inspektur Kabupaten Malang,<br /><br /><br />
                                 <strong><u>{spdForm.pengguna_anggaran}</u></strong><br />
                                 NIP. {spdForm.nip_pa}
                               </td>
@@ -812,7 +839,7 @@ export default function DetailProgresPenugasanPage() {
                   <input type="text" value={spdForm.tempat_berangkat} onChange={(e) => setSpdForm({ ...spdForm, tempat_berangkat: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tempat Tujuan:</label>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tempat Tujuan (Fleksibel):</label>
                   <input type="text" value={spdForm.tempat_tujuan} onChange={(e) => setSpdForm({ ...spdForm, tempat_tujuan: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e0', fontSize: '12px' }} required />
                 </div>
                 <div>
