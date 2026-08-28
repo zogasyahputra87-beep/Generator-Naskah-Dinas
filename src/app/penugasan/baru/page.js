@@ -6,7 +6,6 @@ import Link from 'next/link';
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
 
-// DASAR HUKUM DEFAULT RESMI PERBUP NO. 2/2025 (4 PERATURAN)
 const DASAR_HUKUM_DEFAULT = [
   'Peraturan Pemerintah Nomor 12 Tahun 2017 tentang Pembinaan dan Pengawasan Penyelenggaraan Pemerintah Daerah',
   'Peraturan Daerah Kabupaten Malang Nomor 3 Tahun 2023 Tentang Perubahan Keempat atas Peraturan Daerah Nomor 9 Tahun 2016 Tentang Pembentukan dan Susunan Perangkat Daerah',
@@ -17,7 +16,6 @@ const DASAR_HUKUM_DEFAULT = [
 export default function PenugasanBaruPage() {
   const router = useRouter();
 
-  // Kode Klasifikasi & Penomoran
   const [klasifikasi, setKlasifikasi] = useState('700.1.2');
   const [nomorUrut, setNomorUrut] = useState('');
   const kodeOPD = '35.07.200';
@@ -30,24 +28,18 @@ export default function PenugasanBaruPage() {
   const nomorSuratLengkap = `${klasifikasi}/${nomorUrut || '...'}/${kodeOPD}/${tahun}`;
   const [maksudPenugasan, setMaksudPenugasan] = useState('');
   
-  // Variabel Tempat SPD
   const [tempatBerangkat, setTempatBerangkat] = useState('Inspektorat Daerah Kabupaten Malang');
   const [tempatTujuan, setTempatTujuan] = useState('');
   const [tempatKembali, setTempatKembali] = useState('Inspektorat Daerah Kabupaten Malang');
 
-  // Master Pegawai & Dynamic List
   const [masterPegawai, setMasterPegawai] = useState([]);
   const [loadingPegawai, setLoadingPegawai] = useState(true);
-  
-  // State Dasar Hukum
   const [dasarList, setDasarList] = useState(DASAR_HUKUM_DEFAULT);
 
-  // State Personil
   const [pegawaiList, setPegawaiList] = useState([
     { no: '1', id_supabase: '', nama: '', nip: '', pangkat_gol: '', jabatan: '', peran: 'Ketua Tim' }
   ]);
 
-  // State Paraf Hierarki
   const [tampilkanParaf, setTampilkanParaf] = useState(true);
   const [parafList, setParafList] = useState([
     { jabatan_paraf: 'Plt. Sekretaris' },
@@ -57,7 +49,6 @@ export default function PenugasanBaruPage() {
 
   const [saving, setSaving] = useState(false);
 
-  // Fetch Master Pegawai dari Supabase
   useEffect(() => {
     async function fetchPegawai() {
       try {
@@ -80,7 +71,6 @@ export default function PenugasanBaruPage() {
     fetchPegawai();
   }, []);
 
-  // Handlers Dynamic Lists
   const handleSelectPegawaiOtomatis = (index, selectedId) => {
     const p = masterPegawai.find((item) => String(item.id) === String(selectedId));
     if (p) {
@@ -124,7 +114,6 @@ export default function PenugasanBaruPage() {
   const tambahParaf = () => setParafList([...parafList, { jabatan_paraf: '' }]);
   const hapusParaf = (index) => setParafList(parafList.filter((_, i) => i !== index));
 
-  // Simpan Penugasan Baru ke Supabase
   const handleSubmitPenugasan = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -136,7 +125,6 @@ export default function PenugasanBaruPage() {
       return { no: String(idx + 1), dasar_hukum: String(item || '') };
     });
 
-    // Base Payload Kompatibel
     const payload = {
       nomor_surat: nomorSuratLengkap,
       maksud_penugasan: maksudPenugasan,
@@ -150,7 +138,6 @@ export default function PenugasanBaruPage() {
       status: 'Surat Tugas'
     };
 
-    // Fungsi kirim data dengan fallback otomatis jika kolom tempat_berangkat belum dibuat di Supabase
     const sendData = async (dataPayload) => {
       return await fetch(`${SUPABASE_URL}/rest/v1/penugasan`, {
         method: 'POST',
@@ -165,18 +152,15 @@ export default function PenugasanBaruPage() {
     };
 
     try {
-      // 1. Coba simpan lengkap dengan tempat_berangkat dan tempat_kembali
       let response = await sendData({
         ...payload,
         tempat_berangkat: tempatBerangkat,
         tempat_kembali: tempatKembali
       });
 
-      // 2. Jika Supabase menolak karena kolom tidak ada (schema cache), kirimkan payload standar
       if (!response.ok) {
         const errJson = await response.clone().json().catch(() => ({}));
         if (errJson.message && errJson.message.includes('tempat_berangkat')) {
-          console.warn('Kolom tempat_berangkat belum ada di Supabase, menyimpan dengan skema standar...');
           response = await sendData(payload);
         }
       }
@@ -186,11 +170,9 @@ export default function PenugasanBaruPage() {
         router.push('/dashboard');
       } else {
         const errData = await response.json();
-        console.error('Detail Error Supabase:', errData);
-        alert(`Gagal menyimpan: ${errData.message || errData.details || errData.hint || 'Terjadi kesalahan database.'}`);
+        alert(`Gagal menyimpan: ${errData.message || errData.details || 'Terjadi kesalahan database.'}`);
       }
     } catch (err) {
-      console.error('Error simpan penugasan:', err);
       alert('Terjadi kesalahan koneksi.');
     } finally {
       setSaving(false);
@@ -198,183 +180,218 @@ export default function PenugasanBaruPage() {
   };
 
   return (
-    <div style={{ padding: '10px', maxWidth: '900px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '24px 16px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
-      {/* HEADER NAVIGASI */}
-      <div style={{ marginBottom: '20px' }}>
-        <Link href="/dashboard" style={{ color: '#2b6cb0', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px' }}>
-          ← Kembali ke Dashboard
-        </Link>
-        <h1 style={{ margin: '10px 0 0 0', fontSize: '24px', color: '#1a202c' }}>Buat Penugasan Baru</h1>
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .form-card {
+          animation: fadeIn 0.4s ease-out forwards;
+        }
+        .input-modern {
+          width: 100%;
+          padding: 10px 14px;
+          border-radius: 8px;
+          border: 1px solid #cbd5e1;
+          font-size: 13.5px;
+          outline: none;
+          box-sizing: border-box;
+          transition: all 0.2s;
+          background-color: #ffffff;
+        }
+        .input-modern:focus {
+          border-color: #6366f1;
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+      `}</style>
+
+      <div style={{ maxWidth: '960px', margin: '0 auto' }} className="form-card">
+        
+        {/* HEADER NAVIGASI */}
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <Link href="/dashboard" style={{ color: '#4f46e5', textDecoration: 'none', fontWeight: '700', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              ← Kembali ke Dashboard
+            </Link>
+            <h1 style={{ margin: '8px 0 0 0', fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>
+              Buat Penugasan Baru
+            </h1>
+          </div>
+        </div>
+
+        {/* FORMULIR UTAMA */}
+        <form onSubmit={handleSubmitPenugasan} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          {/* SECTION 1: PENOMORAN & TANGGAL */}
+          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+              <span style={{ backgroundColor: '#e0e7ff', color: '#4338ca', padding: '6px 10px', borderRadius: '8px', fontWeight: '800', fontSize: '12px' }}>01</span>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1e1b4b' }}>Penomoran & Tanggal Naskah Dinas</h3>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Kode Klasifikasi</label>
+                <input 
+                  list="klasifikasi-options" 
+                  value={klasifikasi} 
+                  onChange={(e) => setKlasifikasi(e.target.value)} 
+                  placeholder="Ketik kode..."
+                  required 
+                  className="input-modern"
+                />
+                <datalist id="klasifikasi-options">
+                  <option value="700.1.2">700.1.2 (Pengawasan/Audit)</option>
+                  <option value="000.1.2.3">000.1.2.3 (Umum/Kedinasan)</option>
+                  <option value="800.1.1">800.1.1 (Kepegawaian)</option>
+                  <option value="050.1.1">050.1.1 (Perencanaan)</option>
+                </datalist>
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Nomor Urut Surat</label>
+                <input type="text" value={nomorUrut} onChange={(e) => setNomorUrut(e.target.value)} placeholder="Contoh: 3458" required className="input-modern" />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Kode OPD</label>
+                <input type="text" value={kodeOPD} disabled style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} className="input-modern" />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Tgl. Surat Tugas</label>
+                <input type="date" value={tanggalSurat} onChange={(e) => setTanggalSurat(e.target.value)} required className="input-modern" />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#ef4444', display: 'block', marginBottom: '6px' }}>Tgl. Cetak SPD</label>
+                <input type="date" value={tanggalSPD} onChange={(e) => setTanggalSPD(e.target.value)} required className="input-modern" style={{ borderColor: '#fca5a5' }} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#eef2ff', border: '1px dashed #6366f1', borderRadius: '10px', textAlign: 'center', fontSize: '13px' }}>
+              Nomor Surat Lengkap: <strong style={{ color: '#4338ca', fontSize: '14px' }}>{nomorSuratLengkap}</strong>
+            </div>
+          </div>
+
+          {/* SECTION 2: RINCIAN KEGIATAN */}
+          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+              <span style={{ backgroundColor: '#fef3c7', color: '#b45309', padding: '6px 10px', borderRadius: '8px', fontWeight: '800', fontSize: '12px' }}>02</span>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1e1b4b' }}>Maksud & Lokasi Penugasan</h3>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Maksud Penugasan / Kegiatan Audit:</label>
+              <textarea value={maksudPenugasan} onChange={(e) => setMaksudPenugasan(e.target.value)} placeholder="Contoh: Melakukan Klarifikasi Hasil Pemeriksaan Dengan Tujuan Tertentu (PDTT) Dugaan Pelaksanaan Pekerjaan..." rows="3" required className="input-modern" />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Tempat Berangkat (SPD):</label>
+                <input type="text" value={tempatBerangkat} onChange={(e) => setTempatBerangkat(e.target.value)} required className="input-modern" />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Tempat Tujuan Perjalanan Dinas:</label>
+                <input type="text" value={tempatTujuan} onChange={(e) => setTempatTujuan(e.target.value)} placeholder="Contoh: Kantor Kejaksaan Negeri Kab. Malang" required className="input-modern" />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Tempat Kembali (SPD):</label>
+                <input type="text" value={tempatKembali} onChange={(e) => setTempatKembali(e.target.value)} required className="input-modern" />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3: DASAR HUKUM */}
+          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ backgroundColor: '#d1fae5', color: '#047857', padding: '6px 10px', borderRadius: '8px', fontWeight: '800', fontSize: '12px' }}>03</span>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1e1b4b' }}>Dasar Hukum</h3>
+              </div>
+              <button type="button" onClick={resetDasarDefault} style={{ fontSize: '12px', color: '#4f46e5', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700' }}>
+                🔄 Reset Default (Perbup No. 10/2026)
+              </button>
+            </div>
+
+            {dasarList.map((item, index) => (
+              <div key={index} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                <span style={{ padding: '10px 0', width: '20px', fontSize: '13px', fontWeight: 'bold', color: '#64748b' }}>{index + 1}.</span>
+                <input value={typeof item === 'object' ? (item.dasar_hukum || item.isi_dasar || '') : item} onChange={(e) => handleDasarChange(index, e.target.value)} placeholder="Isi peraturan dasar..." required className="input-modern" style={{ flex: 1 }} />
+                {dasarList.length > 1 && <button type="button" onClick={() => hapusDasar(index)} style={{ color: '#ef4444', cursor: 'pointer', background: 'none', border: 'none', fontSize: '12px', fontWeight: '700' }}>Hapus</button>}
+              </div>
+            ))}
+            <button type="button" onClick={tambahDasar} style={{ padding: '8px 14px', cursor: 'pointer', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: '700', fontSize: '12px', color: '#334155', marginTop: '6px' }}>+ Tambah Dasar Hukum</button>
+          </div>
+
+          {/* SECTION 4: PERSONIL */}
+          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+              <span style={{ backgroundColor: '#e0e7ff', color: '#4338ca', padding: '6px 10px', borderRadius: '8px', fontWeight: '800', fontSize: '12px' }}>04</span>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1e1b4b' }}>Personil Terkait</h3>
+            </div>
+
+            {pegawaiList.map((item, index) => (
+              <div key={index} style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
+                <div style={{ fontWeight: '700', fontSize: '13px', marginBottom: '10px', color: '#334155' }}>
+                  Personil Ke-{index + 1}
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>⚡ Pilih Pegawai Bezitting:</label>
+                  <select
+                    onChange={(e) => handleSelectPegawaiOtomatis(index, e.target.value)}
+                    value={item.id_supabase || ""}
+                    className="input-modern"
+                  >
+                    <option value="" disabled>
+                      {loadingPegawai ? 'Memuat data pegawai...' : '-- Klik Pilih dari Master Bezitting --'}
+                    </option>
+                    {masterPegawai.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nama} - {p.jabatan}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <input value={item.nama} onChange={(e) => handlePegawaiChange(index, 'nama', e.target.value)} placeholder="Nama Lengkap & Gelar" required className="input-modern" />
+                  <input value={item.nip} onChange={(e) => handlePegawaiChange(index, 'nip', e.target.value)} placeholder="NIP" required className="input-modern" />
+                  <input value={item.pangkat_gol} onChange={(e) => handlePegawaiChange(index, 'pangkat_gol', e.target.value)} placeholder="Pangkat/Gol (misal: III/b)" required className="input-modern" />
+                  <input value={item.jabatan} onChange={(e) => handlePegawaiChange(index, 'jabatan', e.target.value)} placeholder="Jabatan Kedinasan" required className="input-modern" />
+                </div>
+                {pegawaiList.length > 1 && <button type="button" onClick={() => hapusPegawai(index)} style={{ color: '#ef4444', marginTop: '10px', cursor: 'pointer', background: 'none', border: 'none', fontSize: '12px', fontWeight: '700' }}>Hapus Personil Ini</button>}
+              </div>
+            ))}
+
+            <button type="button" onClick={tambahPegawai} style={{ padding: '8px 14px', cursor: 'pointer', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: '700', fontSize: '12px', color: '#334155' }}>+ Tambah Personil</button>
+          </div>
+
+          {/* SIMPAN BUTTON */}
+          <button
+            type="submit"
+            disabled={saving}
+            style={{
+              background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+              color: '#fff',
+              padding: '16px',
+              border: 'none',
+              borderRadius: '12px',
+              fontWeight: '800',
+              fontSize: '16px',
+              cursor: saving ? 'not-allowed' : 'pointer',
+              boxShadow: '0 8px 20px -4px rgba(79, 70, 229, 0.35)',
+              transition: 'transform 0.2s'
+            }}
+          >
+            {saving ? 'Menyimpan Penugasan Baru...' : '💾 Simpan Penugasan & Terbitkan Naskah'}
+          </button>
+
+        </form>
       </div>
 
-      {/* FORMULIR INPUT */}
-      <form onSubmit={handleSubmitPenugasan} style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        
-        {/* Penomoran & Tanggal Surat */}
-        <div style={{ border: '1px solid #b3d7ff', padding: '16px', borderRadius: '6px', backgroundColor: '#f0f7ff' }}>
-          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px', color: '#004080' }}>Penomoran & Tanggal Penugasan:</label>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Kode Klasifikasi (Ketik / Pilih)</label>
-              <input 
-                list="klasifikasi-options" 
-                value={klasifikasi} 
-                onChange={(e) => setKlasifikasi(e.target.value)} 
-                placeholder="Pilih atau ketik kode..."
-                required 
-                style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
-              />
-              <datalist id="klasifikasi-options">
-                <option value="700.1.2">700.1.2 (Pengawasan/Audit)</option>
-                <option value="000.1.2.3">000.1.2.3 (Umum/Kedinasan)</option>
-                <option value="800.1.1">800.1.1 (Kepegawaian)</option>
-                <option value="050.1.1">050.1.1 (Perencanaan)</option>
-              </datalist>
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Nomor Urut Surat</label>
-              <input type="text" value={nomorUrut} onChange={(e) => setNomorUrut(e.target.value)} placeholder="Contoh: 3458" required style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Kode OPD</label>
-              <input type="text" value={kodeOPD} disabled style={{ width: '100%', padding: '8px', marginTop: '4px', backgroundColor: '#e9ecef', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Tgl. Surat Tugas</label>
-              <input type="date" value={tanggalSurat} onChange={(e) => setTanggalSurat(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#d9534f' }}>Tgl. Cetak SPD</label>
-              <input type="date" value={tanggalSPD} onChange={(e) => setTanggalSPD(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #d9534f', boxSizing: 'border-box' }} />
-            </div>
-          </div>
-
-          <div style={{ marginTop: '12px', padding: '8px', backgroundColor: '#fff', border: '1px dashed #0066cc', borderRadius: '4px', textAlign: 'center' }}>
-            Preview Nomor Surat: <strong style={{ color: '#0066cc' }}>{nomorSuratLengkap}</strong>
-          </div>
-        </div>
-
-        {/* Maksud Penugasan & Lokasi Perjalanan Dinas */}
-        <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '6px' }}>
-          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px', fontSize: '14px' }}>Rincian Maksud & Lokasi Penugasan:</label>
-          
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 'bold' }}>Maksud Penugasan / Kegiatan Audit:</label>
-            <textarea value={maksudPenugasan} onChange={(e) => setMaksudPenugasan(e.target.value)} placeholder="Contoh: Melakukan Klarifikasi Hasil Pemeriksaan Dengan Tujuan Tertentu (PDTT) Dugaan Pelaksanaan Pekerjaan Konstruksi..." rows="3" required style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-            <div>
-              <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Tempat Berangkat (SPD):</label>
-              <input type="text" value={tempatBerangkat} onChange={(e) => setTempatBerangkat(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Tempat Tujuan Perjalanan Dinas:</label>
-              <input type="text" value={tempatTujuan} onChange={(e) => setTempatTujuan(e.target.value)} placeholder="Contoh: Kantor Kejaksaan Negeri Kabupaten Malang" required style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Tempat Kembali (SPD):</label>
-              <input type="text" value={tempatKembali} onChange={(e) => setTempatKembali(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Dasar Hukum Otomatis (Default + Custom) */}
-        <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '6px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <label style={{ fontWeight: 'bold', fontSize: '14px' }}>Dasar Hukum Penugasan:</label>
-            <button type="button" onClick={resetDasarDefault} style={{ fontSize: '11px', color: '#2b6cb0', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-              🔄 Reset ke Dasar Hukum Default (4 Peraturan Resmi)
-            </button>
-          </div>
-
-          {dasarList.map((item, index) => (
-            <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-              <span style={{ padding: '8px 0', width: '20px', fontSize: '13px', fontWeight: 'bold' }}>{index + 1}.</span>
-              <input value={typeof item === 'object' ? (item.dasar_hukum || item.isi_dasar || '') : item} onChange={(e) => handleDasarChange(index, e.target.value)} placeholder="Isi dasar hukum..." required style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
-              {dasarList.length > 1 && <button type="button" onClick={() => hapusDasar(index)} style={{ color: 'red', cursor: 'pointer', background: 'none', border: 'none', fontSize: '12px' }}>Hapus</button>}
-            </div>
-          ))}
-          <button type="button" onClick={tambahDasar} style={{ padding: '6px 12px', cursor: 'pointer', backgroundColor: '#edf2f7', border: '1px solid #cbd5e0', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}>+ Tambah Baris Dasar Hukum</button>
-        </div>
-
-        {/* Personil Penugasan */}
-        <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '6px' }}>
-          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px', fontSize: '14px' }}>Personil yang Ditugaskan:</label>
-          
-          {pegawaiList.map((item, index) => (
-            <div key={index} style={{ borderBottom: '1px dashed #ccc', paddingBottom: '12px', marginBottom: '12px' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '6px', color: '#2d3748' }}>
-                Personil Ke-{index + 1}
-              </div>
-
-              <div style={{ marginBottom: '10px', backgroundColor: '#f7fafc', padding: '8px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#4a5568' }}>
-                  ⚡ Pilih Cepat dari Bezitting Pegawai:
-                </label>
-                <select
-                  onChange={(e) => handleSelectPegawaiOtomatis(index, e.target.value)}
-                  value={item.id_supabase || ""}
-                  style={{ width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc' }}
-                >
-                  <option value="" disabled>
-                    {loadingPegawai ? 'Memuat data pegawai...' : '-- Klik untuk Memilih Pegawai --'}
-                  </option>
-                  {masterPegawai.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nama} - {p.jabatan}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <input value={item.nama} onChange={(e) => handlePegawaiChange(index, 'nama', e.target.value)} placeholder="Nama Lengkap & Gelar" required style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                <input value={item.nip} onChange={(e) => handlePegawaiChange(index, 'nip', e.target.value)} placeholder="NIP" required style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                <input value={item.pangkat_gol} onChange={(e) => handlePegawaiChange(index, 'pangkat_gol', e.target.value)} placeholder="Pangkat/Gol (misal: Penata Muda Tk. I (III/b))" required style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                <input value={item.jabatan} onChange={(e) => handlePegawaiChange(index, 'jabatan', e.target.value)} placeholder="Jabatan (misal: Auditor Ahli Pertama)" required style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
-              </div>
-              {pegawaiList.length > 1 && <button type="button" onClick={() => hapusPegawai(index)} style={{ color: 'red', marginTop: '8px', cursor: 'pointer', background: 'none', border: 'none', fontSize: '12px' }}>Hapus Personil Ini</button>}
-            </div>
-          ))}
-
-          <button type="button" onClick={tambahPegawai} style={{ padding: '6px 12px', cursor: 'pointer', backgroundColor: '#edf2f7', border: '1px solid #cbd5e0', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}>+ Tambah Personil</button>
-        </div>
-
-        {/* PARAF HIERARKI */}
-        <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '6px', backgroundColor: '#f9f9f9' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>
-            <input type="checkbox" checked={tampilkanParaf} onChange={(e) => setTampilkanParaf(e.target.checked)} />
-            Cetak Tabel Paraf Hierarki pada Surat Tugas
-          </label>
-          {tampilkanParaf && (
-            <div style={{ marginTop: '10px', paddingLeft: '10px' }}>
-              {parafList.map((item, index) => (
-                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
-                  <input value={item.jabatan_paraf} onChange={(e) => handleParafChange(index, e.target.value)} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                  <button type="button" onClick={() => hapusParaf(index)} style={{ color: 'red', cursor: 'pointer', background: 'none', border: 'none', fontSize: '12px' }}>Hapus</button>
-                </div>
-              ))}
-              <button type="button" onClick={tambahParaf} style={{ marginTop: '6px', fontSize: '12px', cursor: 'pointer', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', padding: '4px 8px' }}>+ Tambah Baris Paraf</button>
-            </div>
-          )}
-        </div>
-
-        {/* Tombol Simpan */}
-        <button
-          type="submit"
-          disabled={saving}
-          style={{ backgroundColor: '#2b6cb0', color: 'white', padding: '14px', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: saving ? 'not-allowed' : 'pointer' }}
-        >
-          {saving ? 'Menyimpan Penugasan...' : '💾 Simpan Penugasan Baru'}
-        </button>
-
-      </form>
     </div>
   );
 }
