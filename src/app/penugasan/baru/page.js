@@ -129,6 +129,14 @@ export default function PenugasanBaruPage() {
     e.preventDefault();
     setSaving(true);
 
+    // Format Dasar Hukum Serbaguna (Array of Objects)
+    const dasarFormatted = dasarList.map((item, idx) => {
+      if (typeof item === 'object') {
+        return { no: String(idx + 1), dasar_hukum: item.dasar_hukum || item.isi_dasar || '' };
+      }
+      return { no: String(idx + 1), dasar_hukum: String(item || '') };
+    });
+
     const payload = {
       nomor_surat: nomorSuratLengkap,
       maksud_penugasan: maksudPenugasan,
@@ -137,7 +145,7 @@ export default function PenugasanBaruPage() {
       tempat_kembali: tempatKembali,
       tanggal_surat: tanggalSurat,
       tanggal_spd: tanggalSPD,
-      dasar_hukum: dasarList,
+      dasar_hukum: dasarFormatted,
       personil: pegawaiList,
       tampilkan_paraf: tampilkanParaf,
       paraf_list: parafList,
@@ -160,7 +168,9 @@ export default function PenugasanBaruPage() {
         alert('Penugasan baru berhasil dibuat!');
         router.push('/dashboard');
       } else {
-        alert('Gagal menyimpan penugasan baru.');
+        const errData = await response.json();
+        console.error('Detail Error Supabase:', errData);
+        alert(`Gagal menyimpan: ${errData.message || errData.details || errData.hint || 'Terjadi kesalahan database.'}`);
       }
     } catch (err) {
       console.error('Error simpan penugasan:', err);
@@ -269,7 +279,7 @@ export default function PenugasanBaruPage() {
           {dasarList.map((item, index) => (
             <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               <span style={{ padding: '8px 0', width: '20px', fontSize: '13px', fontWeight: 'bold' }}>{index + 1}.</span>
-              <input value={item} onChange={(e) => handleDasarChange(index, e.target.value)} placeholder="Isi dasar hukum..." required style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
+              <input value={typeof item === 'object' ? (item.dasar_hukum || item.isi_dasar || '') : item} onChange={(e) => handleDasarChange(index, e.target.value)} placeholder="Isi dasar hukum..." required style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
               {dasarList.length > 1 && <button type="button" onClick={() => hapusDasar(index)} style={{ color: 'red', cursor: 'pointer', background: 'none', border: 'none', fontSize: '12px' }}>Hapus</button>}
             </div>
           ))}
