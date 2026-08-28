@@ -79,8 +79,6 @@ export async function POST(req) {
     doc.setData({
       nomor_surat: body.nomor_surat || '-',
       dasar_list: dasarListFormatted,
-      kalimat_penghubung: ', dengan ini:',
-      kata_memerintahkan: 'MEMERINTAHKAN:',
       pegawai_list: pegawaiListFormatted.length > 0 ? pegawaiListFormatted : [{ no: 1, nama: '-', nip: '-', pangkat_gol: '-', jabatan: '-' }],
       penugasan: body.penugasan || '-',
       tanggal: body.tanggal || '-',
