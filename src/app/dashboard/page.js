@@ -66,11 +66,17 @@ export default function DashboardPage() {
     return nomor.includes(query) || maksud.includes(query) || tujuan.includes(query);
   });
 
+  // KETENTUAN STATISTIK RINGKASAN PENUGASAN
+  const totalPenugasan = listPenugasan.length;
+  const totalPerencanaan = listPenugasan.filter(i => !i.tahap || i.tahap === 1 || i.status === 'Surat Tugas').length;
+  const totalPelaksanaan = listPenugasan.filter(i => i.tahap === 2 || i.status === 'Pelaksanaan').length;
+  const totalPelaporan = listPenugasan.filter(i => i.tahap === 3 || i.status === 'Selesai' || i.status === 'Pelaporan').length;
+
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif' }}>
       
       {/* HEADER DASHBOARD */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '24px', color: '#1a202c' }}>Dashboard Penugasan & SPD</h1>
           <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#718096' }}>Inspektorat Daerah Kabupaten Malang</p>
@@ -79,6 +85,31 @@ export default function DashboardPage() {
         <Link href="/penugasan/baru" style={{ backgroundColor: '#2b6cb0', color: '#fff', padding: '10px 18px', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px' }}>
           + Buat Penugasan Baru
         </Link>
+      </div>
+
+      {/* RINGKASAN STATISTIK (FITUR DIPULIHKAN) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', borderLeft: '5px solid #2b6cb0', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontSize: '12px', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase' }}>Total Penugasan</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#1a202c', marginTop: '4px' }}>{totalPenugasan}</div>
+        </div>
+
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', borderLeft: '5px solid #3182ce', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontSize: '12px', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase' }}>1. Perencanaan (ST/SPD)</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#3182ce', marginTop: '4px' }}>{totalPerencanaan}</div>
+        </div>
+
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', borderLeft: '5px solid #dd6b20', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontSize: '12px', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase' }}>2. Pelaksanaan Lapangan</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#dd6b20', marginTop: '4px' }}>{totalPelaksanaan}</div>
+        </div>
+
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', borderLeft: '5px solid #38a169', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontSize: '12px', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase' }}>3. Pelaporan & LHP</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#38a169', marginTop: '4px' }}>{totalPelaporan}</div>
+        </div>
+
       </div>
 
       {/* SEARCH BAR */}
@@ -92,7 +123,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* TABEL PENUGASAN (LANGSUNG KLIK NOMOR / MAKSUD DOKUMEN) */}
+      {/* TABEL DAFTAR PENUGASAN */}
       <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#718096' }}>Memuat data penugasan...</div>
@@ -105,7 +136,7 @@ export default function DashboardPage() {
             <thead>
               <tr style={{ backgroundColor: '#f7fafc', borderBottom: '1px solid #e2e8f0', color: '#4a5568' }}>
                 <th style={{ padding: '12px 16px', width: '50px' }}>No</th>
-                <th style={{ padding: '12px 16px', width: '220px' }}>Nomor Surat (Klik untuk Buka)</th>
+                <th style={{ padding: '12px 16px', width: '220px' }}>Nomor Surat (Klik Detail)</th>
                 <th style={{ padding: '12px 16px' }}>Maksud Penugasan</th>
                 <th style={{ padding: '12px 16px', width: '180px' }}>Tempat Tujuan</th>
                 <th style={{ padding: '12px 16px', width: '110px' }}>Tgl. Surat</th>
@@ -117,14 +148,14 @@ export default function DashboardPage() {
                 <tr key={item.id} style={{ borderBottom: '1px solid #edf2f7' }}>
                   <td style={{ padding: '12px 16px' }}>{index + 1}</td>
                   
-                  {/* KLIK NOMOR SURAT -> LANGSUNG BUKA NASKAH & PROGRES */}
+                  {/* KLIK NOMOR SURAT -> LANGSUNG KE HALAMAN DETAIL & TAHAPAN */}
                   <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>
                     <Link href={`/penugasan/${item.id}`} style={{ color: '#2b6cb0', textDecoration: 'underline' }}>
-                      {item.nomor_surat || 'Buka Naskah'}
+                      {item.nomor_surat || 'Buka Detail'}
                     </Link>
                   </td>
 
-                  {/* KLIK MAKSUD PENUGASAN -> LANGSUNG BUKA NASKAH & PROGRES */}
+                  {/* KLIK MAKSUD PENUGASAN -> LANGSUNG KE HALAMAN DETAIL & TAHAPAN */}
                   <td style={{ padding: '12px 16px' }}>
                     <Link href={`/penugasan/${item.id}`} style={{ color: '#2d3748', textDecoration: 'none' }}>
                       {item.maksud_penugasan || '-'}
@@ -134,7 +165,6 @@ export default function DashboardPage() {
                   <td style={{ padding: '12px 16px' }}>{item.tempat_tujuan || '-'}</td>
                   <td style={{ padding: '12px 16px' }}>{item.tanggal_surat || '-'}</td>
                   
-                  {/* HANYA TOMBOL HAPUS (TANPA TOMBOL TAMBAHAN LAIN) */}
                   <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                     <button
                       onClick={() => handleHapusPenugasan(item.id, item.nomor_surat)}
