@@ -129,7 +129,6 @@ export default function PenugasanBaruPage() {
     e.preventDefault();
     setSaving(true);
 
-    // Format Dasar Hukum Serbaguna (Array of Objects)
     const dasarFormatted = dasarList.map((item, idx) => {
       if (typeof item === 'object') {
         return { no: String(idx + 1), dasar_hukum: item.dasar_hukum || item.isi_dasar || '' };
@@ -137,12 +136,11 @@ export default function PenugasanBaruPage() {
       return { no: String(idx + 1), dasar_hukum: String(item || '') };
     });
 
+    // Base Payload Kompatibel
     const payload = {
       nomor_surat: nomorSuratLengkap,
       maksud_penugasan: maksudPenugasan,
-      tempat_berangkat: tempatBerangkat,
       tempat_tujuan: tempatTujuan,
-      tempat_kembali: tempatKembali,
       tanggal_surat: tanggalSurat,
       tanggal_spd: tanggalSPD,
       dasar_hukum: dasarFormatted,
@@ -152,8 +150,9 @@ export default function PenugasanBaruPage() {
       status: 'Surat Tugas'
     };
 
-    try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/penugasan`, {
+    // Fungsi kirim data dengan fallback otomatis jika kolom tempat_berangkat belum dibuat di Supabase
+    const sendData = async (dataPayload) => {
+      return await fetch(`${SUPABASE_URL}/rest/v1/penugasan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -161,8 +160,26 @@ export default function PenugasanBaruPage() {
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Prefer': 'return=representation'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(dataPayload)
       });
+    };
+
+    try {
+      // 1. Coba simpan lengkap dengan tempat_berangkat dan tempat_kembali
+      let response = await sendData({
+        ...payload,
+        tempat_berangkat: tempatBerangkat,
+        tempat_kembali: tempatKembali
+      });
+
+      // 2. Jika Supabase menolak karena kolom tidak ada (schema cache), kirimkan payload standar
+      if (!response.ok) {
+        const errJson = await response.clone().json().catch(() => ({}));
+        if (errJson.message && errJson.message.includes('tempat_berangkat')) {
+          console.warn('Kolom tempat_berangkat belum ada di Supabase, menyimpan dengan skema standar...');
+          response = await sendData(payload);
+        }
+      }
 
       if (response.ok) {
         alert('Penugasan baru berhasil dibuat!');
