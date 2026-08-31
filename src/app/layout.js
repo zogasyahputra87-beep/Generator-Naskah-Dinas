@@ -1,5 +1,3 @@
-import './globals.css';
-
 export const metadata = {
   title: 'SIM-PENUGASAN - Inspektorat Kabupaten Malang',
   description: 'Portal Layanan Penugasan, Perjalanan Dinas & Audit Internal',
