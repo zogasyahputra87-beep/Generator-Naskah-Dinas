@@ -11,7 +11,7 @@ export default function DetailPenugasanPage({ params }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // State Upload
+  // State Upload & Integrasi Google Drive
   const [uploading, setUploading] = useState(false);
   const [fileStTtd, setFileStTtd] = useState('');
   const [updatingTahap, setUpdatingTahap] = useState(false);
@@ -192,6 +192,66 @@ export default function DetailPenugasanPage({ params }) {
           <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#e0e7ff', lineHeight: 1.5 }}>
             {data.maksud_penugasan}
           </p>
+        </div>
+
+        {/* INTEGRASI GOOGLE DRIVE & DOKUMEN KOLABORATIF */}
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', marginBottom: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                ☁️ Integrasi Google Drive & Dokumen Kolaboratif
+              </h3>
+              <p style={{ margin: '4px 0 0 0', fontSize: '12.5px', color: '#64748b' }}>
+                Buat dan sunting naskah ST, SPD, Berita Acara, serta Kertas Kerja Audit (KKA) langsung di Google Drive tim.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => {
+                  window.open('https://docs.google.com/document/u/0/create', '_blank');
+                }}
+                style={{
+                  backgroundColor: '#4285f4',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(66, 133, 244, 0.25)'
+                }}
+              >
+                <span>📝</span> Buat Google Docs Baru (ST / SPD / BA)
+              </button>
+
+              <button
+                onClick={() => {
+                  window.open('https://docs.google.com/spreadsheets/u/0/create', '_blank');
+                }}
+                style={{
+                  backgroundColor: '#0f9d58',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(15, 157, 88, 0.25)'
+                }}
+              >
+                <span>📊</span> Buat Google Sheets Baru (KKA Audit)
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* STEPPER PROGRES TAHAPAN PENGAWASAN */}
