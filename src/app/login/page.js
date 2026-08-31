@@ -76,7 +76,6 @@ export default function LoginPage() {
             boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.4)'
           }}>
             <img src="/logo-kab-malang.png" alt="Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '38px', height: 'auto' }} />
-            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '24px' }}>🏛️</span>
           </div>
           <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#1e1b4b', letterSpacing: '-0.5px' }}>
             SIM-PENUGASAN
