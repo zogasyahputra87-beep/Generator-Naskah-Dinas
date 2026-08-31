@@ -72,117 +72,181 @@ export default function DashboardPage() {
   const totalPelaporan = listPenugasan.filter(i => i.tahap === 3 || i.status === 'Selesai' || i.status === 'Pelaporan').length;
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
-      {/* NAVBAR & SIDEBAR HIDDEN TERPUSAT */}
+      {/* NAVBAR & SIDEBAR LENGKAP */}
       <AppNavbar title="Dashboard Utama" />
 
-      {/* MAIN CONTENT */}
-      <main style={{ padding: '24px 20px', maxWidth: '1200px', margin: '0 auto', boxSizing: 'border-box' }}>
+      {/* ISI KONTEN */}
+      <main style={{ padding: '28px 20px', maxWidth: '1240px', margin: '0 auto', boxSizing: 'border-box' }}>
         
-        {/* JUDUL */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+        {/* BANNER HEADER HALAMAN */}
+        <div style={{ 
+          background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)', 
+          borderRadius: '20px', 
+          padding: '28px 32px', 
+          marginBottom: '28px', 
+          color: '#fff',
+          boxShadow: '0 10px 25px -5px rgba(49, 46, 129, 0.3)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px'
+        }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.5px' }}>
-              Dashboard Penugasan
-            </h1>
-            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+            <div style={{ fontSize: '12px', fontWeight: '800', color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+              Sistem Informasi Manajemen Penugasan
+            </div>
+            <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '800', letterSpacing: '-0.5px' }}>
               Inspektorat Daerah Kabupaten Malang
+            </h1>
+            <p style={{ margin: '6px 0 0 0', fontSize: '13.5px', color: '#e0e7ff' }}>
+              Pantau seluruh progres naskah dinas, audit, KKP, hingga tindak lanjut dalam satu portal terpadu.
             </p>
           </div>
 
           <Link href="/penugasan/baru" style={{
-            background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)', color: '#fff', padding: '10px 18px', borderRadius: '10px',
-            textDecoration: 'none', fontWeight: '700', fontSize: '13.5px', display: 'inline-flex',
-            alignItems: 'center', gap: '6px', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)'
+            background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)', 
+            color: '#fff', 
+            padding: '12px 22px', 
+            borderRadius: '12px',
+            textDecoration: 'none', 
+            fontWeight: '800', 
+            fontSize: '14px', 
+            display: 'inline-flex',
+            alignItems: 'center', 
+            gap: '8px', 
+            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)'
           }}>
-            <span>+</span> Buat Penugasan Baru
+            <span>➕</span> Buat Penugasan Baru
           </Link>
         </div>
 
-        {/* KARTU STATISTIK */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Total Penugasan</div>
-            <div style={{ fontSize: '28px', fontWeight: '800', color: '#0f172a', marginTop: '4px' }}>{totalPenugasan}</div>
+        {/* KARTU STATISTIK FULL GRADIENT BERWARNA */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+          
+          {/* CARD TOTAL */}
+          <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderRadius: '16px', padding: '22px', color: '#fff', boxShadow: '0 8px 20px rgba(15, 23, 42, 0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Penugasan</span>
+              <span style={{ fontSize: '20px' }}>📋</span>
+            </div>
+            <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '8px', color: '#f8fafc' }}>{totalPenugasan}</div>
+            <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '4px' }}>Naskah dinas terdaftar</div>
           </div>
 
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px', borderLeft: '4px solid #6366f1', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '11px', color: '#4f46e5', fontWeight: '700', textTransform: 'uppercase' }}>1. Perencanaan</div>
-            <div style={{ fontSize: '28px', fontWeight: '800', color: '#3730a3', marginTop: '4px' }}>{totalPerencanaan}</div>
+          {/* CARD PERENCANAAN */}
+          <div style={{ background: 'linear-gradient(135deg, #3730a3 0%, #4f46e5 100%)', borderRadius: '16px', padding: '22px', color: '#fff', boxShadow: '0 8px 20px rgba(79, 70, 229, 0.25)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11.5px', color: '#c7d2fe', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>1. Perencanaan</span>
+              <span style={{ fontSize: '20px' }}>📝</span>
+            </div>
+            <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '8px', color: '#fff' }}>{totalPerencanaan}</div>
+            <div style={{ fontSize: '11px', color: '#e0e7ff', marginTop: '4px' }}>Surat Tugas & Preparation</div>
           </div>
 
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px', borderLeft: '4px solid #f59e0b', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '11px', color: '#d97706', fontWeight: '700', textTransform: 'uppercase' }}>2. Pelaksanaan</div>
-            <div style={{ fontSize: '28px', fontWeight: '800', color: '#b45309', marginTop: '4px' }}>{totalPelaksanaan}</div>
+          {/* CARD PELAKSANAAN */}
+          <div style={{ background: 'linear-gradient(135deg, #b45309 0%, #f59e0b 100%)', borderRadius: '16px', padding: '22px', color: '#fff', boxShadow: '0 8px 20px rgba(245, 158, 11, 0.25)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11.5px', color: '#fef3c7', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>2. Pelaksanaan</span>
+              <span style={{ fontSize: '20px' }}>⚡</span>
+            </div>
+            <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '8px', color: '#fff' }}>{totalPelaksanaan}</div>
+            <div style={{ fontSize: '11px', color: '#fef3c7', marginTop: '4px' }}>Audit Lapangan & KKP</div>
           </div>
 
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px', borderLeft: '4px solid #10b981', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '11px', color: '#059669', fontWeight: '700', textTransform: 'uppercase' }}>3. Pelaporan</div>
-            <div style={{ fontSize: '28px', fontWeight: '800', color: '#047857', marginTop: '4px' }}>{totalPelaporan}</div>
+          {/* CARD PELAPORAN */}
+          <div style={{ background: 'linear-gradient(135deg, #047857 0%, #10b981 100%)', borderRadius: '16px', padding: '22px', color: '#fff', boxShadow: '0 8px 20px rgba(16, 185, 129, 0.25)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11.5px', color: '#d1fae5', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>3. Pelaporan</span>
+              <span style={{ fontSize: '20px' }}>✅</span>
+            </div>
+            <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '8px', color: '#fff' }}>{totalPelaporan}</div>
+            <div style={{ fontSize: '11px', color: '#ecfdf5', marginTop: '4px' }}>LHP Selesai & Tindak Lanjut</div>
           </div>
+
         </div>
 
-        {/* SEARCH BAR */}
-        <div style={{ marginBottom: '16px' }}>
+        {/* BAR PENCARIAN */}
+        <div style={{ marginBottom: '20px' }}>
           <input 
             type="text"
             placeholder="🔍 Cari nomor surat, maksud kegiatan, atau lokasi..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
-              width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #cbd5e1',
-              fontSize: '13.5px', outline: 'none', backgroundColor: '#fff', boxSizing: 'border-box'
+              width: '100%', 
+              padding: '14px 18px', 
+              borderRadius: '12px', 
+              border: '2px solid #e2e8f0',
+              fontSize: '14px', 
+              outline: 'none', 
+              backgroundColor: '#fff', 
+              boxSizing: 'border-box',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
             }}
           />
         </div>
 
-        {/* TABEL DATA */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', overflowX: 'auto', boxShadow: '0 2px 8px -2px rgba(0,0,0,0.04)' }}>
+        {/* TABEL DATA DENGAN HEADER BERWARNA INDIGO */}
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)' }}>
           {loading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Memuat data penugasan...</div>
+            <div style={{ padding: '50px', textAlign: 'center', color: '#64748b', fontWeight: '600' }}>Memuat data penugasan...</div>
           ) : filteredData.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-              {searchQuery ? 'Tidak ada data yang sesuai pencarian.' : 'Belum ada data penugasan.'}
+            <div style={{ padding: '50px', textAlign: 'center', color: '#94a3b8', fontWeight: '600' }}>
+              {searchQuery ? 'Tidak ada data penugasan yang sesuai pencarian.' : 'Belum ada data penugasan.'}
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '650px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px', minWidth: '700px' }}>
               <thead>
-                <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
-                  <th style={{ padding: '12px 16px', width: '40px' }}>No</th>
-                  <th style={{ padding: '12px 16px', width: '200px' }}>Nomor Surat (Detail)</th>
-                  <th style={{ padding: '12px 16px' }}>Maksud Penugasan</th>
-                  <th style={{ padding: '12px 16px', width: '160px' }}>Tempat Tujuan</th>
-                  <th style={{ padding: '12px 16px', width: '110px' }}>Tgl. Surat</th>
-                  <th style={{ padding: '12px 16px', width: '70px', textAlign: 'center' }}>Aksi</th>
+                <tr style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', color: '#fff' }}>
+                  <th style={{ padding: '16px', width: '40px' }}>No</th>
+                  <th style={{ padding: '16px', width: '220px' }}>Nomor Surat (Detail)</th>
+                  <th style={{ padding: '16px' }}>Maksud Penugasan</th>
+                  <th style={{ padding: '16px', width: '170px' }}>Tempat Tujuan</th>
+                  <th style={{ padding: '16px', width: '110px' }}>Tgl. Surat</th>
+                  <th style={{ padding: '16px', width: '70px', textAlign: 'center' }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredData.map((item, index) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '12px 16px', color: '#64748b' }}>{index + 1}</td>
+                  <tr 
+                    key={item.id} 
+                    style={{ 
+                      borderBottom: '1px solid #f1f5f9',
+                      backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc',
+                      transition: 'background 0.15s'
+                    }}
+                  >
+                    <td style={{ padding: '16px', color: '#64748b', fontWeight: '600' }}>{index + 1}</td>
                     
-                    <td style={{ padding: '12px 16px', fontWeight: '700' }}>
-                      <Link href={`/penugasan/${item.id}`} style={{ color: '#4f46e5', textDecoration: 'none' }}>
-                        📄 {item.nomor_surat || 'Buka Detail'}
+                    <td style={{ padding: '16px', fontWeight: '700' }}>
+                      <Link href={`/penugasan/${item.id}`} style={{ color: '#4f46e5', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <span>📄</span> {item.nomor_surat || 'Buka Detail'}
                       </Link>
                     </td>
 
-                    <td style={{ padding: '12px 16px', color: '#334155' }}>
+                    <td style={{ padding: '16px', color: '#334155', lineHeight: 1.5 }}>
                       <Link href={`/penugasan/${item.id}`} style={{ color: '#334155', textDecoration: 'none' }}>
                         {item.maksud_penugasan || '-'}
                       </Link>
                     </td>
 
-                    <td style={{ padding: '12px 16px', color: '#475569' }}>{item.tempat_tujuan || '-'}</td>
-                    <td style={{ padding: '12px 16px', color: '#64748b' }}>{item.tanggal_surat || '-'}</td>
+                    <td style={{ padding: '16px', color: '#475569', fontWeight: '500' }}>{item.tempat_tujuan || '-'}</td>
+                    <td style={{ padding: '16px', color: '#64748b' }}>{item.tanggal_surat || '-'}</td>
                     
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <td style={{ padding: '16px', textAlign: 'center' }}>
                       <button
                         onClick={() => handleHapusPenugasan(item.id, item.nomor_surat)}
                         style={{
-                          backgroundColor: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5',
-                          padding: '6px 10px', borderRadius: '6px', fontWeight: 'bold', fontSize: '11.5px',
+                          backgroundColor: '#fef2f2', 
+                          color: '#ef4444', 
+                          border: '1px solid #fca5a5',
+                          padding: '6px 12px', 
+                          borderRadius: '8px', 
+                          fontWeight: 'bold', 
+                          fontSize: '12px',
                           cursor: 'pointer'
                         }}
                       >
