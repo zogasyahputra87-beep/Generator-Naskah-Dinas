@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import AppNavbar from '@/components/AppNavbar';
+import AppNavbar from '../../components/AppNavbar';
 
 const SUPABASE_URL = 'https://todwehphhdfqmibixcbz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QN0KavM3e4dg1yjTE8nLnA_VvtqDaFa';
@@ -77,10 +77,10 @@ export default function DashboardPage() {
       {/* NAVBAR & SIDEBAR HIDDEN TERPUSAT */}
       <AppNavbar title="Dashboard Utama" />
 
-      {/* ISI KONTEN LENGKAP HALAMAN */}
+      {/* MAIN CONTENT */}
       <main style={{ padding: '24px 20px', maxWidth: '1200px', margin: '0 auto', boxSizing: 'border-box' }}>
         
-        {/* JUDUL UTAMA */}
+        {/* JUDUL */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.5px' }}>
