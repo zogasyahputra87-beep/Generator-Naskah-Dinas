@@ -24,8 +24,8 @@ export default function InteractiveLoginPage() {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
-      background: 'radial-gradient(circle at 50% 30%, #e0e7ff 0%, #f8fafc 100%)',
+      justify: 'center',
+      background: 'radial-gradient(circle at 50% 30%, #1e293b 0%, #0f172a 100%)',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       padding: '20px',
       position: 'relative',
@@ -47,7 +47,7 @@ export default function InteractiveLoginPage() {
           to { opacity: 1; }
         }
         .animate-float {
-          animation: floatCharacter 3s ease-in-out infinite;
+          animation: floatCharacter 3.5s ease-in-out infinite;
         }
         .animate-modal {
           animation: modalSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -56,31 +56,36 @@ export default function InteractiveLoginPage() {
           animation: backdropFade 0.25s ease forwards;
         }
         .btn-portal {
-          background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+          background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
           transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .btn-portal:hover {
           transform: translateY(-2px);
-          box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4);
+          box-shadow: 0 10px 25px -5px rgba(30, 58, 138, 0.5);
         }
       `}</style>
 
-      {/* TAIL/HEADER MEREK INPEKTORAT */}
-      <div style={{ textAlign: 'center', marginBottom: '24px', zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '8px' }}>
-          <div style={{ width: '40px', height: '40px', backgroundColor: '#4f46e5', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', color: '#fff', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)' }}>
-            🏛️
+      {/* HEADER PEMERINTAH KABUPATEN MALANG */}
+      <div style={{ textAlign: 'center', marginBottom: '28px', zIndex: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', marginBottom: '10px' }}>
+          {/* Logo Kabupaten Malang */}
+          <img 
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Lambang_Kabupaten_Malang.png/500px-Lambang_Kabupaten_Malang.png" 
+            alt="Logo Kabupaten Malang" 
+            style={{ width: '48px', height: 'auto', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' }}
+          />
+          <div style={{ textAlign: 'left' }}>
+            <span style={{ display: 'block', fontSize: '18px', fontWeight: '800', color: '#ffffff', letterSpacing: '0.5px', lineHeight: '1.2' }}>
+              PEMERINTAH KABUPATEN MALANG
+            </span>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: '#93c5fd', letterSpacing: '0.5px' }}>
+              Inspektorat Daerah
+            </span>
           </div>
-          <span style={{ fontSize: '20px', fontWeight: '800', color: '#1e1b4b', letterSpacing: '-0.5px' }}>
-            SIM-PENUGASAN
-          </span>
         </div>
-        <p style={{ margin: 0, fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
-          Inspektorat Daerah Kabupaten Malang
-        </p>
       </div>
 
-      {/* ILUSTRASI / ANIMASI KARAKTER UTAMA */}
+      {/* ILUSTRASI / KARTU AKSES UTAMA */}
       <div 
         onClick={() => setShowLoginModal(true)}
         className="animate-float"
@@ -88,26 +93,41 @@ export default function InteractiveLoginPage() {
           cursor: 'pointer',
           textAlign: 'center',
           backgroundColor: '#ffffff',
-          padding: '32px 40px',
+          padding: '36px 32px',
           borderRadius: '24px',
-          boxShadow: '0 20px 40px -15px rgba(30, 27, 75, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
           maxWidth: '380px',
           width: '100%',
           boxSizing: 'border-box',
           zIndex: 10,
-          transition: 'all 0.3s ease'
+          border: '1px solid rgba(255,255,255,0.2)'
         }}
       >
-        {/* GIF / ANIMASI KARAKTER (Bisa diganti dengan Lottie Player / SVG Animasi) */}
-        <div style={{ fontSize: '72px', marginBottom: '12px', lineHeight: 1 }}>
-          👨‍💼💼
+        {/* Kontainer Logo Utama Dalam Kartu */}
+        <div style={{ 
+          width: '84px', 
+          height: '84px', 
+          margin: '0 auto 18px auto', 
+          backgroundColor: '#f8fafc', 
+          borderRadius: '20px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.06), 0 8px 16px -4px rgba(0,0,0,0.1)',
+          padding: '10px'
+        }}>
+          <img 
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Lambang_Kabupaten_Malang.png/500px-Lambang_Kabupaten_Malang.png" 
+            alt="Kabupaten Malang" 
+            style={{ width: '100%', height: 'auto' }}
+          />
         </div>
 
-        <div style={{ fontSize: '16px', fontWeight: '800', color: '#1e1b4b', marginBottom: '6px' }}>
-          Halo! Siap Bertugas Hari Ini?
+        <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>
+          Sistem Layanan Surat Otomatis
         </div>
-        <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 20px 0', lineHeight: 1.5 }}>
-          Klik karakter atau tombol di bawah ini untuk membuka pintu layanan naskah dinas & audit.
+        <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 24px 0', lineHeight: 1.5 }}>
+          Portal pembuatan Naskah Dinas & Administrasi Penugasan Resmi Inspektorat Kabupaten Malang.
         </p>
 
         <button 
@@ -115,7 +135,7 @@ export default function InteractiveLoginPage() {
           className="btn-portal"
           style={{
             width: '100%',
-            padding: '12px',
+            padding: '13px',
             color: '#fff',
             border: 'none',
             borderRadius: '12px',
@@ -128,16 +148,16 @@ export default function InteractiveLoginPage() {
             gap: '8px'
           }}
         >
-          <span>🔑</span> Klik Untuk Masuk Akun
+          <span>🔑</span> Masuk Ke Portal Dinas
         </button>
       </div>
 
-      {/* POPUP / JENDELA LOGIN MODAL (MUNCUL SAAT DIKLIK) */}
+      {/* POPUP MODAL LOGIN */}
       {showLoginModal && (
         <div className="animate-backdrop" style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.5)',
+          backgroundColor: 'rgba(15, 23, 42, 0.75)',
           backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
@@ -152,7 +172,7 @@ export default function InteractiveLoginPage() {
             backgroundColor: '#ffffff',
             borderRadius: '20px',
             padding: '32px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
             position: 'relative'
           }}>
             
@@ -177,13 +197,18 @@ export default function InteractiveLoginPage() {
               ✕
             </button>
 
-            {/* HEADER MODAL */}
-            <div style={{ marginBottom: '24px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '800', color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Autentikasi Pengguna
+            {/* HEADER MODAL DENGAN LOGO */}
+            <div style={{ textAlignment: 'center', marginBottom: '20px', textAlign: 'center' }}>
+              <img 
+                src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Lambang_Kabupaten_Malang.png/500px-Lambang_Kabupaten_Malang.png" 
+                alt="Logo Kab Malang" 
+                style={{ width: '48px', height: 'auto', marginBottom: '8px' }}
+              />
+              <div style={{ fontSize: '11px', fontWeight: '800', color: '#1e3a8a', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                Autentikasi Pegawai
               </div>
-              <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>
-                Jendela Masuk Sistem
+              <h2 style={{ margin: '2px 0 0 0', fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                PEMERINTAH KABUPATEN MALANG
               </h2>
             </div>
 
