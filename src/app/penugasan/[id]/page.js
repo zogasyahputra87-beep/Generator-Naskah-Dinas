@@ -89,7 +89,7 @@ export default function DetailPenugasanPage({ params }) {
     fetchDetailData();
   }, [id]);
 
-  // HANDLE DOWNLOAD DOKUMEN VIA BACKEND GENERATOR (DOCX)
+  // HANDLE DOWNLOAD DOKUMEN WORD (.DOCX)
   const handleExportToDocx = async () => {
     if (!data) return;
     try {
@@ -150,7 +150,7 @@ export default function DetailPenugasanPage({ params }) {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Download Error:', err);
-      alert('Gagal mendownload dokumen Word. Pastikan Route API sudah siap.');
+      alert('Gagal mendownload dokumen Word.');
     } finally {
       setDownloadingDoc(false);
     }
@@ -194,7 +194,7 @@ export default function DetailPenugasanPage({ params }) {
         alert('Dokumen ST/SPD TTD Berhasil Diunggah!');
         fetchDetailData();
       } else {
-        alert('Gagal mengunggah file. Pastikan bucket "penugasan_docs" di Supabase sudah Public.');
+        alert('Gagal mengunggah file.');
       }
     } catch (err) {
       alert('Terjadi kesalahan saat upload.');
@@ -275,12 +275,12 @@ export default function DetailPenugasanPage({ params }) {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
-      {/* STYLE CETAK PRESISI PRINT */}
+      {/* CSS CETAK / PRINT A4 PRESISI */}
       <style jsx global>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin: ${activeTabNaskah === 'spd_belakang' ? '15mm 15mm 15mm 15mm' : '20mm 20mm 25mm 30mm'};
+            margin: ${activeTabNaskah === 'spd_belakang' ? '12mm 15mm 12mm 15mm' : '15mm 20mm 20mm 25mm'};
           }
           body * { visibility: hidden; }
           #print-section, #print-section * { visibility: visible; }
@@ -438,15 +438,15 @@ export default function DetailPenugasanPage({ params }) {
               minHeight: '297mm',
               margin: '0 auto', 
               backgroundColor: '#fff', 
-              paddingTop: activeTabNaskah === 'spd_belakang' ? '15mm' : '20mm',
-              paddingBottom: activeTabNaskah === 'spd_belakang' ? '15mm' : '25mm',
-              paddingLeft: activeTabNaskah === 'spd_belakang' ? '20mm' : '30mm',
+              paddingTop: activeTabNaskah === 'spd_belakang' ? '12mm' : '15mm',
+              paddingBottom: activeTabNaskah === 'spd_belakang' ? '12mm' : '20mm',
+              paddingLeft: activeTabNaskah === 'spd_belakang' ? '15mm' : '20mm',
               paddingRight: activeTabNaskah === 'spd_belakang' ? '15mm' : '20mm',
               boxSizing: 'border-box',
               border: '1px solid #e2e8f0', 
               boxShadow: '0 4px 15px rgba(0,0,0,0.08)', 
               fontFamily: 'Arial, sans-serif', 
-              fontSize: activeTabNaskah === 'spd_belakang' ? '9pt' : '12pt', 
+              fontSize: activeTabNaskah === 'spd_belakang' ? '9.5pt' : '11pt', 
               color: '#000', 
               lineHeight: 1.15 
             }}
@@ -454,23 +454,25 @@ export default function DetailPenugasanPage({ params }) {
 
             {/* KOP SURAT */}
             {activeTabNaskah !== 'spd_belakang' && (
-              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '3px double #000', paddingBottom: '6px', marginBottom: '16px' }}>
-                <div style={{ width: '2.99cm', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
-                  <img src="/logo-kab-malang.png" alt="Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '70px', height: 'auto' }} />
-                </div>
-                <div style={{ width: '12.99cm', textAlign: 'center', lineHeight: 1.25 }}>
-                  <div style={{ fontSize: '12pt', fontWeight: 'normal' }}>
-                    PEMERINTAH KABUPATEN MALANG
-                  </div>
-                  <div style={{ fontSize: '16pt', fontWeight: 'bold', marginTop: '2px' }}>
-                    INSPEKTORAT DAERAH
-                  </div>
-                  <div style={{ fontSize: '10pt', fontWeight: 'normal', marginTop: '3px' }}>
-                    Jalan Raya Mondoroko 17B Singosari, Kabupaten Malang, Jawa Timur<br />
-                    Telepon/Faksimile ( 0341 ) 451905 Laman: http://inspektorat.malangkab.go.id<br />
-                    Pos-el: inspektorat.malangkab@gmail.com, Kode Pos 65153
-                  </div>
-                </div>
+              <div style={{ borderBottom: '3px double #000', paddingBottom: '4px', marginBottom: '14px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '80px', verticalAlign: 'middle', textAlign: 'center' }}>
+                        <img src="/logo-kab-malang.png" alt="Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '68px', height: 'auto' }} />
+                      </td>
+                      <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                        <div style={{ fontSize: '11pt', fontWeight: 'bold', letterSpacing: '0.5px' }}>PEMERINTAH KABUPATEN MALANG</div>
+                        <div style={{ fontSize: '15pt', fontWeight: 'bold', marginTop: '1px' }}>INSPEKTORAT DAERAH</div>
+                        <div style={{ fontSize: '9pt', fontWeight: 'normal', marginTop: '2px' }}>
+                          Jalan Raya Mondoroko 17B Singosari, Jawa Timur<br />
+                          Telepon. (0341) 451905 Laman: http://inspektorat.malangkab.go.id<br />
+                          Pos-el: inspektorat.malangkab@gmail.com, Kode Pos 65153
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             )}
 
@@ -478,11 +480,11 @@ export default function DetailPenugasanPage({ params }) {
             {activeTabNaskah === 'st' && (
               <div>
                 <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '16pt', fontWeight: 'bold' }}>SURAT TUGAS</div>
-                  <div style={{ fontSize: '12pt', marginTop: '2px' }}>NOMOR: {safeString(data.nomor_surat)}</div>
+                  <div style={{ fontSize: '15pt', fontWeight: 'bold' }}>SURAT TUGAS</div>
+                  <div style={{ fontSize: '11pt', marginTop: '2px' }}>NOMOR: {safeString(data.nomor_surat)}</div>
                 </div>
 
-                <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', fontSize: '12pt', lineHeight: 1.15 }}>
+                <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', fontSize: '11pt', lineHeight: 1.15 }}>
                   <tbody>
                     {listDasarWithDenganIni.map((dStr, dIdx) => (
                       <tr key={dIdx}>
@@ -504,11 +506,11 @@ export default function DetailPenugasanPage({ params }) {
                   </tbody>
                 </table>
 
-                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14pt', margin: '14px 0' }}>
+                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13pt', margin: '14px 0' }}>
                   MEMERINTAHKAN:
                 </div>
 
-                <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', fontSize: '12pt', lineHeight: 1.15 }}>
+                <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', fontSize: '11pt', lineHeight: 1.15 }}>
                   <tbody>
                     {listPersonil.map((p, pIdx) => {
                       const itemNama = typeof p === 'object' ? (p?.nama || '-') : String(p || '-');
@@ -531,7 +533,7 @@ export default function DetailPenugasanPage({ params }) {
                           )}
                           <td style={{ width: '0.6cm', verticalAlign: 'top', paddingBottom: '8px' }}>{pIdx + 1}.</td>
                           <td style={{ verticalAlign: 'top', paddingBottom: '8px' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11pt' }}>
                               <tbody>
                                 <tr>
                                   <td style={{ width: '2.8cm' }}>Nama</td>
@@ -562,12 +564,12 @@ export default function DetailPenugasanPage({ params }) {
                   </tbody>
                 </table>
 
-                <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse', fontSize: '12pt', lineHeight: 1.15 }}>
+                <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse', fontSize: '11pt', lineHeight: 1.15 }}>
                   <tbody>
                     <tr>
                       <td style={{ width: '2.25cm', verticalAlign: 'top' }}>Untuk</td>
                       <td style={{ width: '0.4cm', verticalAlign: 'top' }}>:</td>
-                      <td style={{ width: '12.77cm', verticalAlign: 'top', textAlign: 'justify', whiteSpace: 'pre-line' }}>
+                      <td style={{ verticalAlign: 'top', textAlign: 'justify', whiteSpace: 'pre-line' }}>
                         {safeString(data.maksud_penugasan)}
                         {data.tempat_tujuan ? ` bertempat di ${data.tempat_tujuan}.` : ''}
                       </td>
@@ -575,19 +577,19 @@ export default function DetailPenugasanPage({ params }) {
                   </tbody>
                 </table>
 
-                <div style={{ textIndent: '1.59cm', textAlign: 'justify', marginBottom: '8px', lineHeight: 1.15 }}>
+                <div style={{ textIndent: '1.5cm', textAlign: 'justify', marginBottom: '8px', lineHeight: 1.15 }}>
                   Sesuai prosedur, setelah melaksanakan kegiatan dimaksud agar melaporkan hasilnya kepada Plt. Inspektur Kabupaten Malang.
                 </div>
-                <div style={{ textIndent: '1.59cm', textAlign: 'justify', marginBottom: '8px', lineHeight: 1.15 }}>
+                <div style={{ textIndent: '1.5cm', textAlign: 'justify', marginBottom: '8px', lineHeight: 1.15 }}>
                   Selanjutnya dalam upaya menjaga integritas, ASN Inspektorat Daerah dalam melaksanakan tugas <strong>tidak menerima Gratifikasi dan Suap serta tidak memungut biaya apapun atas pelayanan yang diberikan</strong>.
                 </div>
-                <div style={{ textIndent: '1.59cm', textAlign: 'justify', marginBottom: '24px', lineHeight: 1.15 }}>
+                <div style={{ textIndent: '1.5cm', textAlign: 'justify', marginBottom: '24px', lineHeight: 1.15 }}>
                   Demikian Surat Tugas ini disampaikan kepada yang bersangkutan untuk dilaksanakan dengan penuh tanggung jawab.
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '16px' }}>
                   {showParafHierarki ? (
-                    <div style={{ border: '0.5pt solid #000', width: '6.86cm', fontSize: '8pt' }}>
+                    <div style={{ border: '0.5pt solid #000', width: '6.8cm', fontSize: '8pt' }}>
                       <div style={{ backgroundColor: '#E9E9E9', fontWeight: 'bold', textAlign: 'center', padding: '3pt 0', borderBottom: '0.5pt solid #000' }}>
                         PARAF HIERARKI
                       </div>
@@ -609,10 +611,10 @@ export default function DetailPenugasanPage({ params }) {
                       </table>
                     </div>
                   ) : (
-                    <div style={{ width: '6.86cm' }}></div>
+                    <div style={{ width: '6.8cm' }}></div>
                   )}
 
-                  <div style={{ width: '7.5cm', textAlign: 'left', fontSize: '12pt', lineHeight: 1.25 }}>
+                  <div style={{ width: '7.5cm', textAlign: 'left', fontSize: '11pt', lineHeight: 1.25 }}>
                     Malang, {formatTanggalIndo(data.tanggal_surat)}<br />
                     <strong>Plt. Inspektur Kabupaten Malang</strong>
                     <br /><br /><br /><br />
@@ -627,33 +629,42 @@ export default function DetailPenugasanPage({ params }) {
             {/* NASKAH SPD HALAMAN DEPAN */}
             {activeTabNaskah === 'spd_depan' && (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '11pt', marginBottom: '8px' }}>
-                  <div style={{ width: '260px' }}>
-                    <div style={{ display: 'flex' }}>
-                      <span style={{ width: '90px' }}>Lembar ke</span>
-                      <span>: ..........</span>
-                    </div>
-                    <div style={{ display: 'flex' }}>
-                      <span style={{ width: '90px' }}>Kode No</span>
-                      <span>: ..........</span>
-                    </div>
-                    <div style={{ display: 'flex' }}>
-                      <span style={{ width: '90px' }}>Nomor</span>
-                      <span>: {data.nomor_surat}</span>
-                    </div>
-                  </div>
-                </div>
+                <table style={{ width: '100%', marginBottom: '10px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '60%' }}></td>
+                      <td style={{ width: '40%', fontSize: '9.5pt' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <tbody>
+                            <tr>
+                              <td style={{ width: '90px' }}>Lembar ke</td>
+                              <td>: </td>
+                            </tr>
+                            <tr>
+                              <td>Kode No</td>
+                              <td>: </td>
+                            </tr>
+                            <tr>
+                              <td>Nomor</td>
+                              <td>: {data.nomor_surat}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
 
-                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14pt', margin: '12px 0 16px 0' }}>
+                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '12pt', margin: '10px 0 14px 0', textDecoration: 'underline' }}>
                   SURAT PERJALANAN DINAS (SPD)
                 </div>
 
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10.5pt', lineHeight: 1.2 }} border="1" cellPadding="6">
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '9.5pt', lineHeight: 1.25 }} border="1" cellPadding="4">
                   <tbody>
                     <tr>
-                      <td style={{ width: '30px', textAlign: 'center', verticalAlign: 'top' }}>1.</td>
-                      <td style={{ width: '230px', verticalAlign: 'top' }}>Pengguna Anggaran</td>
-                      <td style={{ verticalAlign: 'top' }}>Arrie Hendrawan Mahardhieka, S.H.</td>
+                      <td style={{ width: '25px', textAlign: 'center', verticalAlign: 'top' }}>1.</td>
+                      <td style={{ width: '200px', verticalAlign: 'top' }}>Pengguna Anggaran</td>
+                      <td style={{ verticalAlign: 'top' }}>ARRIE HENDRAWAN MAHADHIEKA, S.H.</td>
                     </tr>
                     <tr>
                       <td style={{ textAlign: 'center', verticalAlign: 'top' }}>2.</td>
@@ -670,7 +681,7 @@ export default function DetailPenugasanPage({ params }) {
                       <td style={{ verticalAlign: 'top' }}>
                         a. {pGol}<br />
                         b. {pJab}<br />
-                        c. Tingkat C
+                        c. 
                       </td>
                     </tr>
                     <tr>
@@ -709,22 +720,65 @@ export default function DetailPenugasanPage({ params }) {
                     </tr>
                     <tr>
                       <td style={{ textAlign: 'center', verticalAlign: 'top' }}>8.</td>
-                      <td style={{ verticalAlign: 'top' }}>Pembebanan Anggaran<br />a. SKPD<br />b. Akun</td>
-                      <td style={{ verticalAlign: 'top' }}><br />a. Inspektorat Daerah Kabupaten Malang<br />b. -</td>
+                      <td colSpan="2" style={{ padding: '0' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }} border="1" cellPadding="3">
+                          <tbody>
+                            <tr>
+                              <td style={{ borderBottom: 'none', borderLeft: 'none', borderTop: 'none' }} width="35%">Pengikut</td>
+                              <td style={{ borderBottom: 'none', borderTop: 'none' }} width="25%">Nama</td>
+                              <td style={{ borderBottom: 'none', borderTop: 'none' }} width="20%">Tanggal Lahir</td>
+                              <td style={{ borderBottom: 'none', borderRight: 'none', borderTop: 'none' }} width="20%">Keterangan</td>
+                            </tr>
+                            <tr>
+                              <td style={{ borderLeft: 'none' }}>1.</td>
+                              <td></td>
+                              <td></td>
+                              <td style={{ borderRight: 'none' }}></td>
+                            </tr>
+                            <tr>
+                              <td style={{ borderLeft: 'none' }}>2.</td>
+                              <td></td>
+                              <td></td>
+                              <td style={{ borderRight: 'none' }}></td>
+                            </tr>
+                            <tr>
+                              <td style={{ borderLeft: 'none', borderBottom: 'none' }}>3.</td>
+                              <td style={{ borderBottom: 'none' }}></td>
+                              <td style={{ borderBottom: 'none' }}></td>
+                              <td style={{ borderRight: 'none', borderBottom: 'none' }}></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </td>
                     </tr>
                     <tr>
                       <td style={{ textAlign: 'center', verticalAlign: 'top' }}>9.</td>
+                      <td style={{ verticalAlign: 'top' }}>Pembebanan Anggaran<br />a. SKPD<br />b. Akun</td>
+                      <td style={{ verticalAlign: 'top' }}><br />a. Inspektorat Daerah Kabupaten Malang<br />b. </td>
+                    </tr>
+                    <tr>
+                      <td style={{ textAlign: 'center', verticalAlign: 'top' }}>10.</td>
                       <td style={{ verticalAlign: 'top' }}>Keterangan lain-lain</td>
-                      <td style={{ verticalAlign: 'top' }}>-</td>
+                      <td style={{ verticalAlign: 'top' }}></td>
                     </tr>
                   </tbody>
                 </table>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                  <div style={{ width: '7.5cm', textAlign: 'left', fontSize: '11pt', lineHeight: 1.25 }}>
-                    Dikeluarkan di : Singosari<br />
-                    Tanggal : {formatTanggalIndo(data.tanggal_spd || data.tanggal_surat)}
-                    <br /><br />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+                  <div style={{ width: '7.5cm', textAlign: 'left', fontSize: '9.5pt', lineHeight: 1.2 }}>
+                    <table style={{ width: '100%' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ width: '90px' }}>Dikeluarkan di</td>
+                          <td>: Singosari</td>
+                        </tr>
+                        <tr>
+                          <td>Tanggal</td>
+                          <td>: {formatTanggalIndo(data.tanggal_spd || data.tanggal_surat)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <br />
                     <strong>Pengguna Anggaran</strong>
                     <br /><br /><br /><br />
                     <strong><u>Arrie Hendrawan Mahardhieka, S.H.</u></strong><br />
@@ -734,21 +788,22 @@ export default function DetailPenugasanPage({ params }) {
               </div>
             )}
 
-            {/* NASKAH SPD VISUM BELAKANG (LENGKAP ROMAWI I - VII) */}
+            {/* NASKAH SPD VISUM BELAKANG (PERSIS PDF ACUAN) */}
             {activeTabNaskah === 'spd_belakang' && (
               <div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '8.5pt', lineHeight: 1.15 }} border="1" cellPadding="4">
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '8.5pt', lineHeight: 1.15 }} border="1" cellPadding="3">
                   <tbody>
                     {/* I */}
                     <tr>
                       <td style={{ width: '50%', verticalAlign: 'top' }}></td>
                       <td style={{ width: '50%', verticalAlign: 'top' }}>
-                        Berangkat dari : Inspektorat Daerah Kab. Malang<br />
-                        Ke : {data.tempat_tujuan || '-'}<br />
-                        Tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
-                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                        I. Berangkat dari : Inspektorat Daerah Kab. Malang<br />
+                        &nbsp;&nbsp;&nbsp;(Tempat Kedudukan)<br />
+                        &nbsp;&nbsp;&nbsp;Ke : {data.tempat_tujuan || 'Kantor Kejaksaan Negeri Kabupaten Malang'}<br />
+                        &nbsp;&nbsp;&nbsp;Tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
+                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
                           <strong>Plt. Inspektur Kabupaten Malang</strong>
-                          <div style={{ height: '40px' }}></div>
+                          <div style={{ height: '35px' }}></div>
                           <strong><u>Arrie Hendrawan Mahardhieka, S.H.</u></strong><br />
                           NIP. 198008012010011018
                         </div>
@@ -758,22 +813,22 @@ export default function DetailPenugasanPage({ params }) {
                     {/* II */}
                     <tr>
                       <td style={{ verticalAlign: 'top' }}>
-                        II. Tiba di : {data.tempat_tujuan || '-'}<br />
-                        Pada tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
-                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                        II. Tiba di : {data.tempat_tujuan || 'Kantor Kejaksaan Negeri Kabupaten Malang'}<br />
+                        &nbsp;&nbsp;&nbsp;&nbsp;Pada tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
+                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
                           Kepala .......................................................
-                          <div style={{ height: '40px' }}></div>
+                          <div style={{ height: '35px' }}></div>
                           (............................................................)<br />
                           NIP.
                         </div>
                       </td>
                       <td style={{ verticalAlign: 'top' }}>
-                        Berangkat dari : {data.tempat_tujuan || '-'}<br />
+                        Berangkat dari : {data.tempat_tujuan || 'Kantor Kejaksaan Negeri Kabupaten Malang'}<br />
                         Ke : Inspektorat Daerah Kab. Malang<br />
                         Pada tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
-                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
                           Kepala .......................................................
-                          <div style={{ height: '40px' }}></div>
+                          <div style={{ height: '35px' }}></div>
                           (............................................................)<br />
                           NIP.
                         </div>
@@ -784,10 +839,10 @@ export default function DetailPenugasanPage({ params }) {
                     <tr>
                       <td style={{ verticalAlign: 'top' }}>
                         III. Tiba di :<br />
-                        Pada tanggal :<br />
-                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Pada tanggal :<br />
+                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
                           Kepala .......................................................
-                          <div style={{ height: '35px' }}></div>
+                          <div style={{ height: '30px' }}></div>
                           (............................................................)<br />
                           NIP.
                         </div>
@@ -796,9 +851,9 @@ export default function DetailPenugasanPage({ params }) {
                         Berangkat dari :<br />
                         Ke :<br />
                         Pada tanggal :<br />
-                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
                           Kepala .......................................................
-                          <div style={{ height: '35px' }}></div>
+                          <div style={{ height: '30px' }}></div>
                           (............................................................)<br />
                           NIP.
                         </div>
@@ -809,10 +864,10 @@ export default function DetailPenugasanPage({ params }) {
                     <tr>
                       <td style={{ verticalAlign: 'top' }}>
                         IV. Tiba di :<br />
-                        Pada tanggal :<br />
-                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Pada tanggal :<br />
+                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
                           Kepala .......................................................
-                          <div style={{ height: '35px' }}></div>
+                          <div style={{ height: '30px' }}></div>
                           (............................................................)<br />
                           NIP.
                         </div>
@@ -821,9 +876,9 @@ export default function DetailPenugasanPage({ params }) {
                         Berangkat dari :<br />
                         Ke :<br />
                         Pada tanggal :<br />
-                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
                           Kepala .......................................................
-                          <div style={{ height: '35px' }}></div>
+                          <div style={{ height: '30px' }}></div>
                           (............................................................)<br />
                           NIP.
                         </div>
@@ -834,33 +889,29 @@ export default function DetailPenugasanPage({ params }) {
                     <tr>
                       <td style={{ verticalAlign: 'top' }}>
                         V. Tiba di : Inspektorat Daerah Kab. Malang<br />
-                        Pada Tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
-                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                        &nbsp;&nbsp;&nbsp;&nbsp;Pada Tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
+                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
                           <strong>Plt. Inspektur Kabupaten Malang</strong>
-                          <div style={{ height: '40px' }}></div>
-                          <strong><u>Arrie Hendrawan Mahardhieka, S.H.</u></strong><br />
-                          NIP. 198008012010011018
-                        </div>
-                      </td>
-                      <td style={{ verticalAlign: 'top' }}>
-                        <div style={{ fontSize: '7.5pt', lineHeight: 1.1, textAlign: 'justify', marginBottom: '4px' }}>
-                          Telah diperiksa, dengan keterangan bahwa perjalanan tersebut diatas benar dilakukan atas perintahnya dan semata-mata untuk kepentingan jabatan dalam waktu yang sesingkat-singkatnya.
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <strong>Pengguna Anggaran</strong>
                           <div style={{ height: '35px' }}></div>
                           <strong><u>Arrie Hendrawan Mahardhieka, S.H.</u></strong><br />
                           NIP. 198008012010011018
                         </div>
                       </td>
+                      <td style={{ verticalAlign: 'top' }}>
+                        <div style={{ fontSize: '7.5pt', lineHeight: 1.1, textAlign: 'justify' }}>
+                          Telah diperiksa, dengan keterangan bahwa perjalanan tersebut diatas benar dilakukan atas perintahnya dan semata-mata untuk kepentingan jabatan dalam waktu yang sesingkat-singkatnya.
+                        </div>
+                      </td>
                     </tr>
 
-                    {/* VI & VII */}
+                    {/* VI */}
                     <tr>
                       <td colSpan="2">
                         <strong>VI. Catatan lain-lain</strong>
                       </td>
                     </tr>
+
+                    {/* VII */}
                     <tr>
                       <td colSpan="2">
                         <strong>VII. PERHATIAN</strong><br />
@@ -871,6 +922,16 @@ export default function DetailPenugasanPage({ params }) {
                     </tr>
                   </tbody>
                 </table>
+
+                {/* TTD PENGGUNA ANGGARAN POSISI PERSIS DI BAWAH TABEL */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                  <div style={{ width: '7.5cm', textAlign: 'left', fontSize: '8.5pt', lineHeight: 1.2 }}>
+                    <strong>Pengguna Anggaran</strong>
+                    <div style={{ height: '40px' }}></div>
+                    <strong><u>Arrie Hendrawan Mahardhieka, S.H.</u></strong><br />
+                    NIP. 198008012010011018
+                  </div>
+                </div>
               </div>
             )}
 
