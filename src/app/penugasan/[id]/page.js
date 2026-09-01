@@ -89,7 +89,7 @@ export default function DetailPenugasanPage({ params }) {
     fetchDetailData();
   }, [id]);
 
-  // HANDLE DOWNLOAD DOKUMEN WORD (PURE CLIENT-SIDE GENERATOR)
+  // EXPORT WORD CLIENT-SIDE
   const handleExportToDocx = () => {
     if (!printAreaRef.current || !data) return;
     try {
@@ -192,7 +192,7 @@ export default function DetailPenugasanPage({ params }) {
     }
   };
 
-  // LANJUT TAHAP (FIXED SUPABASE PATCH)
+  // LANJUT TAHAP (SUPABASE PATCH FIX)
   const handleLanjutTahap = async (tahapBaru, namaTahap) => {
     let pesanKonfirmasi = `Apakah Anda yakin ingin memajukan penugasan ini ke Tahap "${namaTahap}"?`;
     if (!fileStTtd && tahapBaru > 1) {
@@ -221,12 +221,9 @@ export default function DetailPenugasanPage({ params }) {
         alert(`Penugasan berhasil naik ke Tahap: ${namaTahap}.`);
         fetchDetailData();
       } else {
-        const errData = await res.json().catch(() => ({}));
-        console.error('Supabase Patch Error:', errData);
         alert('Gagal memperbarui tahap penugasan.');
       }
     } catch (err) {
-      console.error('Network Error:', err);
       alert('Terjadi kesalahan koneksi.');
     } finally {
       setUpdatingTahap(false);
@@ -264,10 +261,11 @@ export default function DetailPenugasanPage({ params }) {
   const pGol = typeof currentPersonilSPD === 'object' ? (currentPersonilSPD?.pangkat_gol || '-') : '-';
   const pJab = typeof currentPersonilSPD === 'object' ? (currentPersonilSPD?.jabatan || '-') : '-';
 
+  const jenisPenugasanText = data.jenis_penugasan || 'Pemeriksaan / Audit Regular';
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
 
-      {/* CSS CETAK / PRINT A4 PRESISI + ANTI CROP/SPLIT */}
       <style jsx global>{`
         @media print {
           @page {
@@ -292,7 +290,6 @@ export default function DetailPenugasanPage({ params }) {
 
       <main style={{ padding: '28px 20px', maxWidth: '1100px', margin: '0 auto', boxSizing: 'border-box' }}>
 
-        {/* NAVIGASI KEMBALI */}
         <div style={{ marginBottom: '16px' }} className="no-print">
           <Link href="/dashboard" style={{ color: '#4f46e5', textDecoration: 'none', fontWeight: '700', fontSize: '13px' }}>
             ← Kembali ke Dashboard
@@ -303,12 +300,15 @@ export default function DetailPenugasanPage({ params }) {
         <div style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', borderRadius: '16px', padding: '24px 28px', color: '#fff', marginBottom: '24px', boxShadow: '0 10px 25px -5px rgba(30, 27, 75, 0.2)' }} className="no-print">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <div style={{ fontSize: '12px', color: '#a5b4fc', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                Nomor Surat Dinas
+              <div style={{ fontSize: '11px', color: '#a5b4fc', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                Nomor Surat Dinas & Sifat Penugasan
               </div>
-              <h1 style={{ margin: '4px 0 10px 0', fontSize: '22px', fontWeight: '800' }}>
+              <h1 style={{ margin: '4px 0 6px 0', fontSize: '22px', fontWeight: '800' }}>
                 {data.nomor_surat || '-'}
               </h1>
+              <span style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#e0e7ff', padding: '3px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', display: 'inline-block' }}>
+                📌 {jenisPenugasanText}
+              </span>
             </div>
 
             <div>
@@ -317,20 +317,20 @@ export default function DetailPenugasanPage({ params }) {
                   ✅ Berkas ST TTD Lengkap
                 </span>
               ) : (
-                <span style={{ backgroundColor: '#f59e0b', color: '#fff', padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 8px rgba(245, 158, 11, 0.4)' }}>
+                <span style={{ backgroundColor: '#f59e0b', color: '#fff', padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                   ⚠️ Pending Upload ST TTD
                 </span>
               )}
             </div>
           </div>
 
-          <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#e0e7ff', lineHeight: 1.5 }}>
+          <p style={{ margin: '12px 0 0 0', fontSize: '14px', color: '#e0e7ff', lineHeight: 1.5 }}>
             {data.maksud_penugasan}
           </p>
         </div>
 
         {/* PROGRES TAHAPAN PENGAWASAN */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }} className="no-print">
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginBottom: '24px' }} className="no-print">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
             <div style={{ padding: '14px', borderRadius: '12px', border: '2px solid', borderColor: currentTahap >= 1 ? '#6366f1' : '#e2e8f0', backgroundColor: currentTahap >= 1 ? '#e0e7ff' : '#f8fafc', color: currentTahap >= 1 ? '#3730a3' : '#94a3b8' }}>
               <div style={{ fontWeight: '800', fontSize: '13px' }}>1. Perencanaan (ST/SPD)</div>
@@ -343,6 +343,91 @@ export default function DetailPenugasanPage({ params }) {
             </div>
           </div>
         </div>
+
+        {/* MODUL DINAMIS TAHAP 2: PELAKSANAAN LAPANGAN */}
+        {currentTahap === 2 && (
+          <div style={{ backgroundColor: '#fff', border: '1px solid #cbd5e1', borderRadius: '16px', padding: '24px', marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }} className="no-print">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#1e1b4b' }}>
+                  🛠️ Modul Pelaksanaan Lapangan
+                </h3>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
+                  Sifat Penugasan: <strong style={{ color: '#4f46e5' }}>{jenisPenugasanText}</strong>
+                </span>
+              </div>
+              <span style={{ backgroundColor: '#fef3c7', color: '#b45309', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
+                Status: On Progress Lapangan
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* DOKUMENTASI DEDIKASI */}
+              <div style={{ border: '1px solid #cbd5e1', borderRadius: '12px', padding: '16px', backgroundColor: '#f8fafc' }}>
+                <div style={{ fontWeight: '800', fontSize: '13.5px', color: '#334155', marginBottom: '6px' }}>
+                  📸 Dokumentasi Turun Lapangan
+                </div>
+                <p style={{ fontSize: '11.5px', color: '#64748b', margin: '0 0 12px 0' }}>
+                  Unggah foto lokasi, sampel kondisi fisik, atau aktivitas audit lapangan.
+                </p>
+                <input type="file" multiple accept="image/*" style={{ fontSize: '11.5px', width: '100%' }} />
+              </div>
+
+              {/* UNDANGAN & RISALAH PEMBAHASAN */}
+              {(jenisPenugasanText.toLowerCase().includes('pemeriksaan') || 
+                jenisPenugasanText.toLowerCase().includes('audit') || 
+                jenisPenugasanText.toLowerCase().includes('reviu')) && (
+                <div style={{ border: '1px solid #cbd5e1', borderRadius: '12px', padding: '16px', backgroundColor: '#f8fafc' }}>
+                  <div style={{ fontWeight: '800', fontSize: '13.5px', color: '#334155', marginBottom: '6px' }}>
+                    ✉️ Undangan & Risalah Pembahasan
+                  </div>
+                  <p style={{ fontSize: '11.5px', color: '#64748b', margin: '0 0 12px 0' }}>
+                    Buat atau unggah berkas undangan pembahasan hasil dengan Obrik.
+                  </p>
+                  <input type="file" accept=".pdf,.doc,.docx" style={{ fontSize: '11.5px', width: '100%' }} />
+                </div>
+              )}
+
+              {/* KERTAS KERJA / CATATAN */}
+              {(jenisPenugasanText.toLowerCase().includes('audit') || jenisPenugasanText.toLowerCase().includes('reviu')) && (
+                <div style={{ border: '1px solid #cbd5e1', borderRadius: '12px', padding: '16px', backgroundColor: '#f8fafc' }}>
+                  <div style={{ fontWeight: '800', fontSize: '13.5px', color: '#334155', marginBottom: '6px' }}>
+                    📊 Kertas Kerja Pemeriksaan / Reviu (KKP/CHR)
+                  </div>
+                  <p style={{ fontSize: '11.5px', color: '#64748b', margin: '0 0 12px 0' }}>
+                    Unggah KKP atau matriks catatan hasil pengawasan.
+                  </p>
+                  <input type="file" accept=".pdf,.xlsx,.xls" style={{ fontSize: '11.5px', width: '100%' }} />
+                </div>
+              )}
+
+              {/* BERITA ACARA */}
+              <div style={{ border: '1px solid #cbd5e1', borderRadius: '12px', padding: '16px', backgroundColor: '#f8fafc' }}>
+                <div style={{ fontWeight: '800', fontSize: '13.5px', color: '#334155', marginBottom: '6px' }}>
+                  📝 Berita Acara / Laporan Ringkas Lapangan
+                </div>
+                <p style={{ fontSize: '11.5px', color: '#64748b', margin: '0 0 12px 0' }}>
+                  Upload BA Hasil Kesepakatan, BA Wawancara, atau ringkasan hasil kunjungan.
+                </p>
+                <input type="file" accept=".pdf" style={{ fontSize: '11.5px', width: '100%' }} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #e2e8f0', textAlign: 'right' }}>
+              <button
+                onClick={() => handleLanjutTahap(3, 'Pelaporan')}
+                disabled={updatingTahap}
+                style={{
+                  backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '12px 20px',
+                  borderRadius: '10px', fontWeight: '800', fontSize: '13.5px', cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
+                }}
+              >
+                {updatingTahap ? 'Memproses...' : '✅ Selesaikan Lapangan & Lanjut Ke Tahap 3: Pelaporan LHP →'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* BAR KONTROL GENERATOR DOKUMEN */}
         <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px 24px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }} className="no-print">
@@ -506,7 +591,6 @@ export default function DetailPenugasanPage({ params }) {
                   MEMERINTAHKAN:
                 </div>
 
-                {/* PERSONIL TABEL DENGAN ATURAN KEEPTOGETHER */}
                 <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', fontSize: '11pt', lineHeight: 1.15 }}>
                   <tbody>
                     {listPersonil.map((p, pIdx) => {
@@ -574,7 +658,6 @@ export default function DetailPenugasanPage({ params }) {
                   </tbody>
                 </table>
 
-                {/* PARAGRAF PENUTUP & TTD PIMPINAN DISATUKAN AGAR TIDAK TERPOTONG */}
                 <div className="keep-together" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                   <div style={{ textIndent: '1.5cm', textAlign: 'justify', marginBottom: '8px', lineHeight: 1.15 }}>
                     Sesuai prosedur, setelah melaksanakan kegiatan dimaksud agar melaporkan hasilnya kepada Plt. Inspektur Kabupaten Malang.
@@ -793,7 +876,6 @@ export default function DetailPenugasanPage({ params }) {
               <div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '8.5pt', lineHeight: 1.15 }} border="1" cellPadding="3">
                   <tbody>
-                    {/* I */}
                     <tr>
                       <td style={{ width: '50%', verticalAlign: 'top' }}></td>
                       <td style={{ width: '50%', verticalAlign: 'top', textAlign: 'left' }}>
@@ -809,8 +891,6 @@ export default function DetailPenugasanPage({ params }) {
                         </div>
                       </td>
                     </tr>
-
-                    {/* II */}
                     <tr>
                       <td style={{ verticalAlign: 'top', textAlign: 'left' }}>
                         II. Tiba di : {data.tempat_tujuan || 'Kantor Kejaksaan Negeri Kabupaten Malang'}<br />
@@ -834,8 +914,6 @@ export default function DetailPenugasanPage({ params }) {
                         </div>
                       </td>
                     </tr>
-
-                    {/* III */}
                     <tr>
                       <td style={{ verticalAlign: 'top', textAlign: 'left' }}>
                         III. Tiba di :<br />
@@ -859,8 +937,6 @@ export default function DetailPenugasanPage({ params }) {
                         </div>
                       </td>
                     </tr>
-
-                    {/* IV */}
                     <tr>
                       <td style={{ verticalAlign: 'top', textAlign: 'left' }}>
                         IV. Tiba di :<br />
@@ -884,8 +960,6 @@ export default function DetailPenugasanPage({ params }) {
                         </div>
                       </td>
                     </tr>
-
-                    {/* V */}
                     <tr>
                       <td style={{ verticalAlign: 'top', textAlign: 'left' }}>
                         V. Tiba di : Inspektorat Daerah Kab. Malang<br />
@@ -903,15 +977,11 @@ export default function DetailPenugasanPage({ params }) {
                         </div>
                       </td>
                     </tr>
-
-                    {/* VI */}
                     <tr>
                       <td colSpan="2">
                         <strong>VI. Catatan lain-lain</strong>
                       </td>
                     </tr>
-
-                    {/* VII */}
                     <tr>
                       <td colSpan="2">
                         <strong>VII. PERHATIAN</strong><br />
@@ -923,7 +993,6 @@ export default function DetailPenugasanPage({ params }) {
                   </tbody>
                 </table>
 
-                {/* TTD PENGGUNA ANGGARAN POSISI PERSIS DI BAWAH TABEL */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }} className="keep-together">
                   <div style={{ width: '7.5cm', textAlign: 'left', fontSize: '8.5pt', lineHeight: 1.2 }}>
                     <strong>Pengguna Anggaran</strong>
@@ -938,85 +1007,38 @@ export default function DetailPenugasanPage({ params }) {
           </div>
         </div>
 
-        {/* UPLOAD BERKAS TTD & VERIFIKASI TAHAP */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', marginBottom: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }} className="no-print">
+        {/* UPLOAD BERKAS TTD */}
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', marginBottom: '24px' }} className="no-print">
           <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
-            📁 Upload Berkas Bertanda Tangan & Verifikasi Tahap
+            📁 Upload Berkas Bertanda Tangan Fisik
           </h3>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'center' }}>
-
-            <div style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '20px', textAlign: 'center', backgroundColor: '#f8fafc' }}>
-              <div style={{ fontSize: '24px', marginBottom: '8px' }}>📑</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                Upload ST / SPD Bertanda Tangan (PDF/Gambar)
-              </div>
-              <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '12px' }}>
-                Dapat diunggah kemudian hari jika dokumen TTD fisik sudah terbit.
-              </div>
-
-              <input 
-                type="file" 
-                accept=".pdf,.png,.jpg,.jpeg" 
-                onChange={handleFileUpload} 
-                disabled={uploading}
-                style={{ fontSize: '12px' }}
-              />
-
-              {uploading && <div style={{ fontSize: '12px', color: '#6366f1', marginTop: '8px', fontWeight: 'bold' }}>Mengunggah Berkas...</div>}
-
-              {fileStTtd ? (
-                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
-                  <a href={fileStTtd} target="_blank" rel="noopener noreferrer" style={{ color: '#10b981', fontWeight: 'bold', fontSize: '12.5px', textDecoration: 'none' }}>
-                    ✅ Lihat Dokumen ST Bertanda Tangan
-                  </a>
-                </div>
-              ) : (
-                <div style={{ marginTop: '10px', fontSize: '11.5px', color: '#d97706', fontWeight: '600' }}>
-                  ℹ️ Belum ada berkas terunggah (Dapat disusulkan)
-                </div>
-              )}
+          <div style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '20px', textAlign: 'center', backgroundColor: '#f8fafc' }}>
+            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📑</div>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+              Upload ST / SPD Bertanda Tangan (PDF/Gambar)
             </div>
+            <input 
+              type="file" 
+              accept=".pdf,.png,.jpg,.jpeg" 
+              onChange={handleFileUpload} 
+              disabled={uploading}
+              style={{ fontSize: '12px' }}
+            />
 
-            <div style={{ backgroundColor: '#f1f5f9', padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>
-                STATUS PENGAWASAN SAAT INI:
+            {uploading && <div style={{ fontSize: '12px', color: '#6366f1', marginTop: '8px', fontWeight: 'bold' }}>Mengunggah Berkas...</div>}
+
+            {fileStTtd ? (
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                <a href={fileStTtd} target="_blank" rel="noopener noreferrer" style={{ color: '#10b981', fontWeight: 'bold', fontSize: '12.5px', textDecoration: 'none' }}>
+                  ✅ Lihat Dokumen ST Bertanda Tangan
+                </a>
               </div>
-              <div style={{ fontSize: '15px', fontWeight: '800', color: '#1e1b4b' }}>
-                {currentTahap === 1 && 'Tahap 1: Perencanaan (Naskah Dinas)'}
-                {currentTahap === 2 && 'Tahap 2: Pelaksanaan Lapangan (KKP)'}
-                {currentTahap === 3 && 'Tahap 3: Pelaporan & LHP Selesai'}
+            ) : (
+              <div style={{ marginTop: '10px', fontSize: '11.5px', color: '#d97706', fontWeight: '600' }}>
+                ℹ️ Belum ada berkas terunggah (Dapat disusulkan)
               </div>
-
-              {currentTahap === 1 && (
-                <button
-                  onClick={() => handleLanjutTahap(2, 'Pelaksanaan')}
-                  disabled={updatingTahap}
-                  style={{
-                    backgroundColor: '#4f46e5', color: '#fff', border: 'none', padding: '12px 18px',
-                    borderRadius: '10px', fontWeight: '800', fontSize: '13.5px', cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)'
-                  }}
-                >
-                  {updatingTahap ? 'Memproses...' : '🚀 Lanjut Ke Tahap 2: Pelaksanaan Lapangan →'}
-                </button>
-              )}
-
-              {currentTahap === 2 && (
-                <button
-                  onClick={() => handleLanjutTahap(3, 'Pelaporan')}
-                  disabled={updatingTahap}
-                  style={{
-                    backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '12px 18px',
-                    borderRadius: '10px', fontWeight: '800', fontSize: '13.5px', cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
-                  }}
-                >
-                  {updatingTahap ? 'Memproses...' : '✅ Selesaikan & Lanjut Ke Tahap 3: Pelaporan LHP →'}
-                </button>
-              )}
-            </div>
-
+            )}
           </div>
         </div>
 
