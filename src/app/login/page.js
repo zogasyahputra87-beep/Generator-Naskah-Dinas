@@ -24,7 +24,7 @@ export default function InteractiveLoginPage() {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justify: 'center',
+      justifyContent: 'center',
       background: 'radial-gradient(circle at 50% 30%, #1e293b 0%, #0f172a 100%)',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       padding: '20px',
@@ -32,7 +32,7 @@ export default function InteractiveLoginPage() {
       overflow: 'hidden'
     }}>
       
-      {/* ANIMASI CSS MODAL & CHARACTER */}
+      {/* CSS STYLES */}
       <style jsx global>{`
         @keyframes floatCharacter {
           0%, 100% { transform: translateY(0px); }
@@ -68,9 +68,9 @@ export default function InteractiveLoginPage() {
       {/* HEADER PEMERINTAH KABUPATEN MALANG */}
       <div style={{ textAlign: 'center', marginBottom: '28px', zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', marginBottom: '10px' }}>
-          {/* Logo Kabupaten Malang */}
+          {/* Path Logo dari folder /public */}
           <img 
-            src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Lambang_Kabupaten_Malang.png/500px-Lambang_Kabupaten_Malang.png" 
+            src="/logo-kab-malang.png" 
             alt="Logo Kabupaten Malang" 
             style={{ width: '48px', height: 'auto', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' }}
           />
@@ -85,7 +85,7 @@ export default function InteractiveLoginPage() {
         </div>
       </div>
 
-      {/* ILUSTRASI / KARTU AKSES UTAMA */}
+      {/* KARTU AKSES UTAMA */}
       <div 
         onClick={() => setShowLoginModal(true)}
         className="animate-float"
@@ -103,7 +103,7 @@ export default function InteractiveLoginPage() {
           border: '1px solid rgba(255,255,255,0.2)'
         }}
       >
-        {/* Kontainer Logo Utama Dalam Kartu */}
+        {/* Kontainer Logo Dalam Kartu */}
         <div style={{ 
           width: '84px', 
           height: '84px', 
@@ -117,7 +117,7 @@ export default function InteractiveLoginPage() {
           padding: '10px'
         }}>
           <img 
-            src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Lambang_Kabupaten_Malang.png/500px-Lambang_Kabupaten_Malang.png" 
+            src="/logo-kab-malang.png" 
             alt="Kabupaten Malang" 
             style={{ width: '100%', height: 'auto' }}
           />
@@ -200,7 +200,7 @@ export default function InteractiveLoginPage() {
             {/* HEADER MODAL DENGAN LOGO */}
             <div style={{ textAlignment: 'center', marginBottom: '20px', textAlign: 'center' }}>
               <img 
-                src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Lambang_Kabupaten_Malang.png/500px-Lambang_Kabupaten_Malang.png" 
+                src="/logo-kab-malang.png" 
                 alt="Logo Kab Malang" 
                 style={{ width: '48px', height: 'auto', marginBottom: '8px' }}
               />
