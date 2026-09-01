@@ -56,6 +56,7 @@ export default function DetailPenugasanPage({ params }) {
 
   // State Upload & Progres
   const [uploading, setUploading] = useState(false);
+  const [downloadingDoc, setDownloadingDoc] = useState(false);
   const [fileStTtd, setFileStTtd] = useState('');
   const [updatingTahap, setUpdatingTahap] = useState(false);
 
@@ -88,42 +89,71 @@ export default function DetailPenugasanPage({ params }) {
     fetchDetailData();
   }, [id]);
 
-  // HANDLE DOWNLOAD WORD
-  const handleExportToDocx = () => {
-    if (!printAreaRef.current) return;
-    
-    const judulDoc = activeTabNaskah === 'st' ? 'Surat_Tugas' : activeTabNaskah === 'spd_depan' ? 'SPD_Depan' : 'SPD_Visum';
-    const marginStyles = activeTabNaskah === 'spd_belakang' 
-      ? '@page { size: A4; margin: 1.5cm 1.5cm 1.5cm 2cm; }' 
-      : '@page { size: A4; margin: 2cm 2cm 2.5cm 3cm; }';
+  // HANDLE DOWNLOAD DOKUMEN VIA BACKEND GENERATOR (DOCX)
+  const handleExportToDocx = async () => {
+    if (!data) return;
+    try {
+      setDownloadingDoc(true);
+      let endpoint = '/api/generate-spd';
+      let payload = {};
 
-    const htmlContent = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head>
-        <meta charset='utf-8'>
-        <title>${judulDoc}</title>
-        <style>
-          ${marginStyles}
-          body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.15; }
-          table { width: 100%; border-collapse: collapse; }
-          td { vertical-align: top; }
-        </style>
-      </head>
-      <body>
-        ${printAreaRef.current.innerHTML}
-      </body>
-      </html>
-    `;
+      const currentPersonil = (Array.isArray(data.personil) ? data.personil : [])[activeSPDIndex] || {};
+      const pNama = typeof currentPersonil === 'object' ? (currentPersonil?.nama || '-') : String(currentPersonil || '-');
+      const pNip = typeof currentPersonil === 'object' ? (currentPersonil?.nip || '-') : '-';
+      const pGol = typeof currentPersonil === 'object' ? (currentPersonil?.pangkat_gol || '-') : '-';
+      const pJab = typeof currentPersonil === 'object' ? (currentPersonil?.jabatan || '-') : '-';
 
-    const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${judulDoc}_${safeString(data?.nomor_surat, 'Naskah').replace(/[\/\s]+/g, '_')}.doc`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+      if (activeTabNaskah === 'st') {
+        endpoint = '/api/generate-surat';
+        payload = {
+          nomor_surat: data.nomor_surat,
+          maksud_penugasan: data.maksud_penugasan,
+          tempat_tujuan: data.tempat_tujuan,
+          tanggal_surat: formatTanggalIndo(data.tanggal_surat),
+          personil: data.personil,
+          dasar_hukum: data.dasar_hukum
+        };
+      } else {
+        payload = {
+          halaman_belakang_only: activeTabNaskah === 'spd_belakang',
+          nomor_spd: data.nomor_surat,
+          nama: pNama,
+          nip: pNip,
+          pangkat_gol: pGol,
+          jabatan: pJab,
+          maksud_penugasan: data.maksud_penugasan,
+          tempat_berangkat: data.tempat_berangkat || 'Inspektorat Daerah Kab. Malang',
+          tempat_tujuan: data.tempat_tujuan,
+          tgl_berangkat: formatTanggalIndo(data.tanggal_surat),
+          tgl_spd: formatTanggalIndo(data.tanggal_spd || data.tanggal_surat)
+        };
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error('Gagal me-render dokumen dari API');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      const tabLabel = activeTabNaskah === 'st' ? 'ST' : activeTabNaskah === 'spd_depan' ? `SPD_Depan_${pNama.replace(/\s+/g, '_')}` : `SPD_Belakang_${pNama.replace(/\s+/g, '_')}`;
+      a.download = `${tabLabel}_${safeString(data?.nomor_surat, 'Naskah').replace(/[\/\s]+/g, '_')}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download Error:', err);
+      alert('Gagal mendownload dokumen Word. Pastikan Route API sudah siap.');
+    } finally {
+      setDownloadingDoc(false);
+    }
   };
 
   // UPLOAD FILE TTD KE SUPABASE
@@ -173,7 +203,7 @@ export default function DetailPenugasanPage({ params }) {
     }
   };
 
-  // LANJUT TAHAP (FLEKSIBEL)
+  // LANJUT TAHAP
   const handleLanjutTahap = async (tahapBaru, namaTahap) => {
     let pesanKonfirmasi = `Apakah Anda yakin ingin memajukan penugasan ini ke Tahap "${namaTahap}"?`;
     if (!fileStTtd && tahapBaru > 1) {
@@ -245,15 +275,12 @@ export default function DetailPenugasanPage({ params }) {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
-      {/* STYLE CETAK PRESISI */}
+      {/* STYLE CETAK PRESISI PRINT */}
       <style jsx global>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin-top: ${activeTabNaskah === 'spd_belakang' ? '1.5cm' : '2cm'};
-            margin-bottom: ${activeTabNaskah === 'spd_belakang' ? '1.5cm' : '2.5cm'};
-            margin-left: ${activeTabNaskah === 'spd_belakang' ? '2cm' : '3cm'};
-            margin-right: ${activeTabNaskah === 'spd_belakang' ? '1.5cm' : '2cm'};
+            margin: ${activeTabNaskah === 'spd_belakang' ? '15mm 15mm 15mm 15mm' : '20mm 20mm 25mm 30mm'};
           }
           body * { visibility: hidden; }
           #print-section, #print-section * { visibility: visible; }
@@ -321,7 +348,7 @@ export default function DetailPenugasanPage({ params }) {
           </div>
         </div>
 
-        {/* BAR KONTROL GENERATOR DOKUMEN & EKSPOR WORD */}
+        {/* BAR KONTROL GENERATOR DOKUMEN */}
         <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px 24px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }} className="no-print">
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
@@ -371,14 +398,14 @@ export default function DetailPenugasanPage({ params }) {
               🖨️ Cetak / PDF
             </button>
 
-            <button onClick={handleExportToDocx} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)' }}>
-              📥 Download File Word (.docx)
+            <button onClick={handleExportToDocx} disabled={downloadingDoc} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)' }}>
+              {downloadingDoc ? '⏳ Generating Word...' : '📥 Download File Word (.docx)'}
             </button>
           </div>
         </div>
 
         {/* PILIH PEGAWAI SPD */}
-        {activeTabNaskah === 'spd_depan' && (
+        {activeTabNaskah !== 'st' && (
           <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }} className="no-print">
             <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Pilih Pegawai Cetak SPD:</span>
             {listPersonil.map((p, idx) => {
@@ -419,7 +446,7 @@ export default function DetailPenugasanPage({ params }) {
               border: '1px solid #e2e8f0', 
               boxShadow: '0 4px 15px rgba(0,0,0,0.08)', 
               fontFamily: 'Arial, sans-serif', 
-              fontSize: activeTabNaskah === 'spd_belakang' ? '10pt' : '12pt', 
+              fontSize: activeTabNaskah === 'spd_belakang' ? '9pt' : '12pt', 
               color: '#000', 
               lineHeight: 1.15 
             }}
@@ -707,26 +734,139 @@ export default function DetailPenugasanPage({ params }) {
               </div>
             )}
 
-            {/* NASKAH SPD VISUM BELAKANG */}
+            {/* NASKAH SPD VISUM BELAKANG (LENGKAP ROMAWI I - VII) */}
             {activeTabNaskah === 'spd_belakang' && (
               <div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '9.5pt', lineHeight: 1.2 }} border="1" cellPadding="5">
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '8.5pt', lineHeight: 1.15 }} border="1" cellPadding="4">
                   <tbody>
+                    {/* I */}
                     <tr>
+                      <td style={{ width: '50%', verticalAlign: 'top' }}></td>
                       <td style={{ width: '50%', verticalAlign: 'top' }}>
-                        <strong>I. Berangkat dari</strong> : {data.tempat_berangkat || 'Inspektorat Daerah Kab. Malang'}<br />
-                        &nbsp;&nbsp;&nbsp;&nbsp;Ke : {data.tempat_tujuan || '-'}<br />
-                        &nbsp;&nbsp;&nbsp;&nbsp;Tanggal : {formatTanggalIndo(data.tanggal_surat)}<br /><br />
-                        <strong>Plt. Inspektur Kabupaten Malang</strong><br /><br /><br /><br />
-                        <strong><u>Arrie Hendrawan Mahardhieka, S.H.</u></strong><br />
-                        NIP. 198008012010011018
+                        Berangkat dari : Inspektorat Daerah Kab. Malang<br />
+                        Ke : {data.tempat_tujuan || '-'}<br />
+                        Tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
+                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                          <strong>Plt. Inspektur Kabupaten Malang</strong>
+                          <div style={{ height: '40px' }}></div>
+                          <strong><u>Arrie Hendrawan Mahardhieka, S.H.</u></strong><br />
+                          NIP. 198008012010011018
+                        </div>
                       </td>
-                      <td style={{ width: '50%', verticalAlign: 'top' }}>
-                        <strong>II. Tiba di</strong> : {data.tempat_tujuan || '-'}<br />
-                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Pada tanggal : {formatTanggalIndo(data.tanggal_surat)}<br /><br />
-                        <strong>Kepala</strong> : {data.tempat_tujuan || '-'}<br /><br /><br /><br />
-                        (.........................................................)<br />
-                        NIP.
+                    </tr>
+
+                    {/* II */}
+                    <tr>
+                      <td style={{ verticalAlign: 'top' }}>
+                        II. Tiba di : {data.tempat_tujuan || '-'}<br />
+                        Pada tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
+                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                          Kepala .......................................................
+                          <div style={{ height: '40px' }}></div>
+                          (............................................................)<br />
+                          NIP.
+                        </div>
+                      </td>
+                      <td style={{ verticalAlign: 'top' }}>
+                        Berangkat dari : {data.tempat_tujuan || '-'}<br />
+                        Ke : Inspektorat Daerah Kab. Malang<br />
+                        Pada tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
+                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                          Kepala .......................................................
+                          <div style={{ height: '40px' }}></div>
+                          (............................................................)<br />
+                          NIP.
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* III */}
+                    <tr>
+                      <td style={{ verticalAlign: 'top' }}>
+                        III. Tiba di :<br />
+                        Pada tanggal :<br />
+                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                          Kepala .......................................................
+                          <div style={{ height: '35px' }}></div>
+                          (............................................................)<br />
+                          NIP.
+                        </div>
+                      </td>
+                      <td style={{ verticalAlign: 'top' }}>
+                        Berangkat dari :<br />
+                        Ke :<br />
+                        Pada tanggal :<br />
+                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                          Kepala .......................................................
+                          <div style={{ height: '35px' }}></div>
+                          (............................................................)<br />
+                          NIP.
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* IV */}
+                    <tr>
+                      <td style={{ verticalAlign: 'top' }}>
+                        IV. Tiba di :<br />
+                        Pada tanggal :<br />
+                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                          Kepala .......................................................
+                          <div style={{ height: '35px' }}></div>
+                          (............................................................)<br />
+                          NIP.
+                        </div>
+                      </td>
+                      <td style={{ verticalAlign: 'top' }}>
+                        Berangkat dari :<br />
+                        Ke :<br />
+                        Pada tanggal :<br />
+                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                          Kepala .......................................................
+                          <div style={{ height: '35px' }}></div>
+                          (............................................................)<br />
+                          NIP.
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* V */}
+                    <tr>
+                      <td style={{ verticalAlign: 'top' }}>
+                        V. Tiba di : Inspektorat Daerah Kab. Malang<br />
+                        Pada Tanggal : {formatTanggalIndo(data.tanggal_surat)}<br />
+                        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                          <strong>Plt. Inspektur Kabupaten Malang</strong>
+                          <div style={{ height: '40px' }}></div>
+                          <strong><u>Arrie Hendrawan Mahardhieka, S.H.</u></strong><br />
+                          NIP. 198008012010011018
+                        </div>
+                      </td>
+                      <td style={{ verticalAlign: 'top' }}>
+                        <div style={{ fontSize: '7.5pt', lineHeight: 1.1, textAlign: 'justify', marginBottom: '4px' }}>
+                          Telah diperiksa, dengan keterangan bahwa perjalanan tersebut diatas benar dilakukan atas perintahnya dan semata-mata untuk kepentingan jabatan dalam waktu yang sesingkat-singkatnya.
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <strong>Pengguna Anggaran</strong>
+                          <div style={{ height: '35px' }}></div>
+                          <strong><u>Arrie Hendrawan Mahardhieka, S.H.</u></strong><br />
+                          NIP. 198008012010011018
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* VI & VII */}
+                    <tr>
+                      <td colSpan="2">
+                        <strong>VI. Catatan lain-lain</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colSpan="2">
+                        <strong>VII. PERHATIAN</strong><br />
+                        <span style={{ fontSize: '7.5pt', lineHeight: 1.1 }}>
+                          Pejabat yang berwenang menerbitkan SPPD, pegawai yang melakukan perjalanan dinas, para pejabat yang mengesahkan tanggal berangkat/tiba serta Bendaharawan bertanggung jawab berdasarkan peraturan-peraturan Keuangan Negara apabila Negara mendapat rugi akibat kesalahan, kealpaannya.
+                        </span>
                       </td>
                     </tr>
                   </tbody>
