@@ -63,7 +63,8 @@ export default function DashboardPage() {
     const nomor = String(item.nomor_surat || '').toLowerCase();
     const maksud = String(item.maksud_penugasan || '').toLowerCase();
     const tujuan = String(item.tempat_tujuan || '').toLowerCase();
-    return nomor.includes(query) || maksud.includes(query) || tujuan.includes(query);
+    const jenis = String(item.jenis_penugasan || '').toLowerCase();
+    return nomor.includes(query) || maksud.includes(query) || tujuan.includes(query) || jenis.includes(query);
   });
 
   const totalPenugasan = listPenugasan.length;
@@ -74,7 +75,7 @@ export default function DashboardPage() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
-      {/* NAVBAR & SIDEBAR LENGKAP */}
+      {/* NAVBAR */}
       <AppNavbar title="Dashboard Utama" />
 
       {/* ISI KONTEN */}
@@ -89,7 +90,7 @@ export default function DashboardPage() {
           color: '#fff',
           boxShadow: '0 10px 25px -5px rgba(49, 46, 129, 0.3)',
           display: 'flex',
-          justifyContent: 'space-between',
+          justify: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '16px'
@@ -106,7 +107,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <Link href="/penugasan/baru" style={{
+          <Link href="/penugasan/buat" style={{
             background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)', 
             color: '#fff', 
             padding: '12px 22px', 
@@ -172,7 +173,7 @@ export default function DashboardPage() {
         <div style={{ marginBottom: '20px' }}>
           <input 
             type="text"
-            placeholder="🔍 Cari nomor surat, maksud kegiatan, atau lokasi..."
+            placeholder="🔍 Cari nomor surat, jenis penugasan, maksud kegiatan, atau lokasi..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -198,65 +199,83 @@ export default function DashboardPage() {
               {searchQuery ? 'Tidak ada data penugasan yang sesuai pencarian.' : 'Belum ada data penugasan.'}
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px', minWidth: '700px' }}>
-              <thead>
-                <tr style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', color: '#fff' }}>
-                  <th style={{ padding: '16px', width: '40px' }}>No</th>
-                  <th style={{ padding: '16px', width: '220px' }}>Nomor Surat (Detail)</th>
-                  <th style={{ padding: '16px' }}>Maksud Penugasan</th>
-                  <th style={{ padding: '16px', width: '170px' }}>Tempat Tujuan</th>
-                  <th style={{ padding: '16px', width: '110px' }}>Tgl. Surat</th>
-                  <th style={{ padding: '16px', width: '70px', textAlign: 'center' }}>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredData.map((item, index) => (
-                  <tr 
-                    key={item.id} 
-                    style={{ 
-                      borderBottom: '1px solid #f1f5f9',
-                      backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc',
-                      transition: 'background 0.15s'
-                    }}
-                  >
-                    <td style={{ padding: '16px', color: '#64748b', fontWeight: '600' }}>{index + 1}</td>
-                    
-                    <td style={{ padding: '16px', fontWeight: '700' }}>
-                      <Link href={`/penugasan/${item.id}`} style={{ color: '#4f46e5', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>📄</span> {item.nomor_surat || 'Buka Detail'}
-                      </Link>
-                    </td>
-
-                    <td style={{ padding: '16px', color: '#334155', lineHeight: 1.5 }}>
-                      <Link href={`/penugasan/${item.id}`} style={{ color: '#334155', textDecoration: 'none' }}>
-                        {item.maksud_penugasan || '-'}
-                      </Link>
-                    </td>
-
-                    <td style={{ padding: '16px', color: '#475569', fontWeight: '500' }}>{item.tempat_tujuan || '-'}</td>
-                    <td style={{ padding: '16px', color: '#64748b' }}>{item.tanggal_surat || '-'}</td>
-                    
-                    <td style={{ padding: '16px', textAlign: 'center' }}>
-                      <button
-                        onClick={() => handleHapusPenugasan(item.id, item.nomor_surat)}
-                        style={{
-                          backgroundColor: '#fef2f2', 
-                          color: '#ef4444', 
-                          border: '1px solid #fca5a5',
-                          padding: '6px 12px', 
-                          borderRadius: '8px', 
-                          fontWeight: 'bold', 
-                          fontSize: '12px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        🗑️
-                      </button>
-                    </td>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px', minWidth: '850px' }}>
+                <thead>
+                  <tr style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', color: '#fff' }}>
+                    <th style={{ padding: '16px', width: '40px' }}>No</th>
+                    <th style={{ padding: '16px', width: '200px' }}>Nomor Surat</th>
+                    <th style={{ padding: '16px', width: '180px' }}>Jenis Penugasan</th>
+                    <th style={{ padding: '16px' }}>Maksud Penugasan</th>
+                    <th style={{ padding: '16px', width: '150px' }}>Tempat Tujuan</th>
+                    <th style={{ padding: '16px', width: '110px' }}>Tgl. Surat</th>
+                    <th style={{ padding: '16px', width: '70px', textAlign: 'center' }}>Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredData.map((item, index) => (
+                    <tr 
+                      key={item.id} 
+                      style={{ 
+                        borderBottom: '1px solid #f1f5f9',
+                        backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc',
+                        transition: 'background 0.15s'
+                      }}
+                    >
+                      <td style={{ padding: '16px', color: '#64748b', fontWeight: '600' }}>{index + 1}</td>
+                      
+                      <td style={{ padding: '16px', fontWeight: '700' }}>
+                        <Link href={`/penugasan/${item.id}`} style={{ color: '#4f46e5', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <span>📄</span> {item.nomor_surat || 'Buka Detail'}
+                        </Link>
+                      </td>
+
+                      {/* BADGE JENIS PENUGASAN */}
+                      <td style={{ padding: '16px' }}>
+                        <span style={{ 
+                          backgroundColor: '#e0e7ff', 
+                          color: '#3730a3', 
+                          padding: '4px 10px', 
+                          borderRadius: '8px', 
+                          fontSize: '11.5px', 
+                          fontWeight: '700',
+                          display: 'inline-block'
+                        }}>
+                          📌 {item.jenis_penugasan || 'Pemeriksaan / Audit Regular'}
+                        </span>
+                      </td>
+
+                      <td style={{ padding: '16px', color: '#334155', lineHeight: 1.5 }}>
+                        <Link href={`/penugasan/${item.id}`} style={{ color: '#334155', textDecoration: 'none' }}>
+                          {item.maksud_penugasan || '-'}
+                        </Link>
+                      </td>
+
+                      <td style={{ padding: '16px', color: '#475569', fontWeight: '500' }}>{item.tempat_tujuan || '-'}</td>
+                      <td style={{ padding: '16px', color: '#64748b' }}>{item.tanggal_surat || '-'}</td>
+                      
+                      <td style={{ padding: '16px', textAlign: 'center' }}>
+                        <button
+                          onClick={() => handleHapusPenugasan(item.id, item.nomor_surat)}
+                          style={{
+                            backgroundColor: '#fef2f2', 
+                            color: '#ef4444', 
+                            border: '1px solid #fca5a5',
+                            padding: '6px 12px', 
+                            borderRadius: '8px', 
+                            fontWeight: 'bold', 
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
