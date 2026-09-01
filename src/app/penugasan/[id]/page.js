@@ -89,65 +89,54 @@ export default function DetailPenugasanPage({ params }) {
     fetchDetailData();
   }, [id]);
 
-  // HANDLE DOWNLOAD DOKUMEN WORD (.DOCX)
-  const handleExportToDocx = async () => {
-    if (!data) return;
+  // HANDLE DOWNLOAD DOKUMEN WORD (PURE CLIENT-SIDE GENERATOR)
+  const handleExportToDocx = () => {
+    if (!printAreaRef.current || !data) return;
     try {
       setDownloadingDoc(true);
-      let endpoint = '/api/generate-spd';
-      let payload = {};
 
-      const currentPersonil = (Array.isArray(data.personil) ? data.personil : [])[activeSPDIndex] || {};
-      const pNama = typeof currentPersonil === 'object' ? (currentPersonil?.nama || '-') : String(currentPersonil || '-');
-      const pNip = typeof currentPersonil === 'object' ? (currentPersonil?.nip || '-') : '-';
-      const pGol = typeof currentPersonil === 'object' ? (currentPersonil?.pangkat_gol || '-') : '-';
-      const pJab = typeof currentPersonil === 'object' ? (currentPersonil?.jabatan || '-') : '-';
+      const judulDoc = activeTabNaskah === 'st' 
+        ? 'Surat_Tugas' 
+        : activeTabNaskah === 'spd_depan' 
+        ? 'SPD_Depan' 
+        : 'SPD_Visum';
 
-      if (activeTabNaskah === 'st') {
-        endpoint = '/api/generate-surat';
-        payload = {
-          nomor_surat: data.nomor_surat,
-          maksud_penugasan: data.maksud_penugasan,
-          tempat_tujuan: data.tempat_tujuan,
-          tanggal_surat: formatTanggalIndo(data.tanggal_surat),
-          personil: data.personil,
-          dasar_hukum: data.dasar_hukum
-        };
-      } else {
-        payload = {
-          halaman_belakang_only: activeTabNaskah === 'spd_belakang',
-          nomor_spd: data.nomor_surat,
-          nama: pNama,
-          nip: pNip,
-          pangkat_gol: pGol,
-          jabatan: pJab,
-          maksud_penugasan: data.maksud_penugasan,
-          tempat_berangkat: data.tempat_berangkat || 'Inspektorat Daerah Kab. Malang',
-          tempat_tujuan: data.tempat_tujuan,
-          tgl_berangkat: formatTanggalIndo(data.tanggal_surat),
-          tgl_spd: formatTanggalIndo(data.tanggal_spd || data.tanggal_surat)
-        };
-      }
+      const marginStyles = activeTabNaskah === 'spd_belakang' 
+        ? '@page { size: A4 portrait; margin: 1.2cm 1.5cm 1.2cm 1.5cm; }' 
+        : '@page { size: A4 portrait; margin: 1.5cm 2cm 2cm 2.5cm; }';
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const htmlContent = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <meta charset='utf-8'>
+          <title>${judulDoc}</title>
+          <style>
+            ${marginStyles}
+            body { font-family: Arial, sans-serif; font-size: ${activeTabNaskah === 'spd_belakang' ? '9.5pt' : '11pt'}; line-height: 1.15; }
+            table { width: 100%; border-collapse: collapse; }
+            td { vertical-align: top; }
+            .keep-together { page-break-inside: avoid; }
+          </style>
+        </head>
+        <body>
+          ${printAreaRef.current.innerHTML}
+        </body>
+        </html>
+      `;
 
-      if (!response.ok) throw new Error('Gagal me-render dokumen dari API');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
 
-      const tabLabel = activeTabNaskah === 'st' ? 'ST' : activeTabNaskah === 'spd_depan' ? `SPD_Depan_${pNama.replace(/\s+/g, '_')}` : `SPD_Belakang_${pNama.replace(/\s+/g, '_')}`;
-      a.download = `${tabLabel}_${safeString(data?.nomor_surat, 'Naskah').replace(/[\/\s]+/g, '_')}.docx`;
+      const pNama = (Array.isArray(data?.personil) ? data.personil : [])[activeSPDIndex]?.nama || 'Pegawai';
+      const labelNama = activeTabNaskah === 'st' ? '' : `_${pNama.replace(/\s+/g, '_')}`;
+
+      a.download = `${judulDoc}${labelNama}_${safeString(data?.nomor_surat, 'Naskah').replace(/[\/\s]+/g, '_')}.doc`;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Download Error:', err);
       alert('Gagal mendownload dokumen Word.');
@@ -203,7 +192,7 @@ export default function DetailPenugasanPage({ params }) {
     }
   };
 
-  // LANJUT TAHAP
+  // LANJUT TAHAP (FIXED SUPABASE PATCH)
   const handleLanjutTahap = async (tahapBaru, namaTahap) => {
     let pesanKonfirmasi = `Apakah Anda yakin ingin memajukan penugasan ini ke Tahap "${namaTahap}"?`;
     if (!fileStTtd && tahapBaru > 1) {
@@ -220,11 +209,11 @@ export default function DetailPenugasanPage({ params }) {
         headers: {
           'Content-Type': 'application/json',
           'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal'
         },
         body: JSON.stringify({ 
-          tahap: tahapBaru,
-          status: namaTahap
+          tahap: parseInt(tahapBaru, 10)
         })
       });
 
@@ -232,9 +221,12 @@ export default function DetailPenugasanPage({ params }) {
         alert(`Penugasan berhasil naik ke Tahap: ${namaTahap}.`);
         fetchDetailData();
       } else {
+        const errData = await res.json().catch(() => ({}));
+        console.error('Supabase Patch Error:', errData);
         alert('Gagal memperbarui tahap penugasan.');
       }
     } catch (err) {
+      console.error('Network Error:', err);
       alert('Terjadi kesalahan koneksi.');
     } finally {
       setUpdatingTahap(false);
@@ -403,7 +395,7 @@ export default function DetailPenugasanPage({ params }) {
             </button>
 
             <button onClick={handleExportToDocx} disabled={downloadingDoc} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)' }}>
-              {downloadingDoc ? '⏳ Generating Word...' : '📥 Download File Word (.docx)'}
+              {downloadingDoc ? '⏳ Generating Word...' : '📥 Download File Word (.doc)'}
             </button>
           </div>
         </div>
@@ -796,7 +788,7 @@ export default function DetailPenugasanPage({ params }) {
               </div>
             )}
 
-            {/* NASKAH SPD VISUM BELAKANG (PERSIS PDF ACUAN + RATA KIRI TTD) */}
+            {/* NASKAH SPD VISUM BELAKANG */}
             {activeTabNaskah === 'spd_belakang' && (
               <div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '8.5pt', lineHeight: 1.15 }} border="1" cellPadding="3">
